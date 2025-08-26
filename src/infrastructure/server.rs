@@ -1,4 +1,4 @@
-use bytes::BytesMut;
+use bytes::{Buf, BytesMut};
 use log::{debug, error, info, warn};
 use std::sync::Arc;
 use tokio::io::{AsyncReadExt, AsyncWriteExt};
@@ -12,7 +12,8 @@ use crate::{
         services::{MessageService, OffsetManagementService},
     },
     infrastructure::protocol::{
-        encode_bytes, encode_i16, encode_i32, encode_i64, encode_i8, encode_string, ApiKey,
+        encode_bytes, encode_i16, encode_i32, encode_i64, encode_i8, encode_string,
+        decode_i32, decode_string, ApiKey,
         ApiVersionsRequest, ApiVersionsResponse, FetchRequest, KafkaDecodable, KafkaEncodable,
         ProduceRequest, RequestHeader, ResponseHeader,
     },
@@ -290,16 +291,60 @@ impl ConnectionHandler {
         Ok(())
     }
 
+    /// Decode metadata request to extract requested topics
+    fn decode_metadata_request(&mut self, buf: &mut BytesMut) -> anyhow::Result<Option<Vec<String>>> {
+        if buf.remaining() < 4 {
+            return Ok(None);
+        }
+
+        // Read topics array length
+        let topics_count = decode_i32(buf)?;
+        debug!("Metadata request has {} topics", topics_count);
+
+        if topics_count == -1 {
+            // Null array means all topics
+            return Ok(None);
+        }
+
+        if topics_count == 0 {
+            // Empty array means all topics
+            return Ok(None);
+        }
+
+        let mut topics = Vec::new();
+        for _ in 0..topics_count {
+            if let Some(topic) = decode_string(buf)? {
+                topics.push(topic);
+            }
+        }
+
+        Ok(Some(topics))
+    }
+
     /// Handle metadata requests
     async fn handle_metadata_request(
         &mut self,
         header: RequestHeader,
-        _buf: &mut BytesMut,
+        buf: &mut BytesMut,
     ) -> anyhow::Result<()> {
         debug!("Metadata request for API version {}", header.api_version);
 
+        // Try to decode the metadata request to see what topics are requested
+        let requested_topics = self.decode_metadata_request(buf)?;
+        debug!("Requested topics: {:?}", requested_topics);
+
         match self.topic_management_use_case.list_topics().await {
-            Ok(topics) => {
+            Ok(mut topics) => {
+                // If specific topics were requested, include them even if they don't exist yet
+                if let Some(requested) = requested_topics {
+                    for requested_topic in requested {
+                        if !topics.contains(&requested_topic) {
+                            debug!("Auto-creating topic: {}", requested_topic);
+                            topics.push(requested_topic);
+                        }
+                    }
+                }
+                
                 debug!("Found {} topics: {:?}", topics.len(), topics);
                 self.send_metadata_response(header.correlation_id, header.api_version, topics)
                     .await?;
@@ -515,10 +560,7 @@ impl ConnectionHandler {
         let header = ResponseHeader { correlation_id };
         header.encode(&mut response)?;
 
-        // For Metadata v1+ we include throttle time first
-        if api_version >= 1 {
-            encode_i32(&mut response, 0); // Throttle time
-        }
+        // NO throttle_time in metadata responses!
 
         // Brokers array
         encode_i32(&mut response, 1); // One broker (ourselves)
@@ -538,9 +580,13 @@ impl ConnectionHandler {
             }
         }
 
-        // For Metadata v2+ we include cluster ID and controller ID
+        // For Metadata v2+ we include cluster ID
         if api_version >= 2 {
-            encode_string(&mut response, Some("test-cluster"))?; // Cluster ID (shorter name)
+            encode_string(&mut response, Some("test-cluster"))?; // Cluster ID
+        }
+
+        // For Metadata v1+ we include controller ID  
+        if api_version >= 1 {
             encode_i32(&mut response, 0); // Controller ID
         }
 
@@ -576,11 +622,6 @@ impl ConnectionHandler {
                 // Leader
                 encode_i32(&mut response, 0);
 
-                // For Metadata v2+ we include leader epoch
-                if api_version >= 2 {
-                    encode_i32(&mut response, 0); // Leader epoch
-                }
-
                 // Replicas array
                 encode_i32(&mut response, 1);
                 encode_i32(&mut response, 0);
@@ -588,11 +629,6 @@ impl ConnectionHandler {
                 // ISR array
                 encode_i32(&mut response, 1);
                 encode_i32(&mut response, 0);
-
-                // For Metadata v1+ we include offline replicas
-                if api_version >= 1 {
-                    encode_i32(&mut response, 0); // Offline replicas (empty array)
-                }
             }
         }
 
