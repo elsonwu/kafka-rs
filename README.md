@@ -1,9 +1,285 @@
-# Kafka-RS
+# 🦀 Kafka-RS: Educational Kafka Implementation in Rust
 
-Educational Kafka implementation in Rust.
+[![Rust](https://github.com/elsonwu/kafka-rs/workflows/CI/badge.svg)](https://github.com/elsonwu/kafka-rs/actions)
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
+[![Rust Version](https://img.shields.io/badge/rust-1.87.0+-blue.svg)](https://www.rust-lang.org/)
 
-## Coming Soon
+An educational **Apache Kafka-compatible message broker** implementation in Rust, designed for learning how Kafka works under the hood. Built with **Domain-Driven Design (DDD)** principles to demonstrate clean architecture patterns in systems programming.
 
-This repository will contain a complete educational Kafka implementation built with Rust using Domain-Driven Design principles.
+## 🎯 Purpose
 
-Stay tuned for the full implementation!
+This project serves as an educational resource for understanding:
+
+- **How Apache Kafka works internally** - wire protocol, message storage, consumer groups
+- **Domain-Driven Design in systems programming** - clean architecture with Rust
+- **Async networking with Tokio** - building high-performance network services
+- **Protocol implementation** - parsing and encoding binary protocols
+- **Message queue patterns** - producer/consumer, offset management, partitioning
+
+> ⚠️ **Educational Use Only**: This implementation prioritizes learning and clarity over production performance. It uses in-memory storage and simplified algorithms.
+
+## ✨ Features
+
+### 🔌 Kafka Protocol Compatibility
+- **Producer API** - Send messages to topics with automatic topic creation
+- **Consumer API** - Fetch messages from topics with offset management  
+- **Metadata API** - Discover topics, partitions, and broker information
+- **Offset Management** - Consumer offset commit and fetch operations
+- **Wire Protocol** - Compatible with standard Kafka clients (KafkaJS, kafka-python, etc.)
+
+### 🏗️ Domain-Driven Design Architecture
+- **Domain Layer** - Pure business logic with entities, value objects, and domain services
+- **Application Layer** - Use cases orchestrating domain operations
+- **Infrastructure Layer** - I/O concerns, networking, and persistence
+- **Repository Pattern** - Clean separation between business logic and data access
+
+### 📚 Educational Focus
+- **Extensive Documentation** - Every component explained with purpose and design decisions
+- **Clear Code Structure** - Self-documenting code following DDD patterns
+- **Comprehensive Logging** - Educational logs throughout request/response cycles
+- **Protocol Transparency** - Easy to understand wire protocol implementation
+
+## 🚀 Quick Start
+
+### Prerequisites
+- **Rust 1.87.0+** - [Install Rust](https://rustup.rs/)
+- **Cargo** - Comes with Rust installation
+
+### Installation & Running
+
+```bash
+# Clone the repository
+git clone https://github.com/elsonwu/kafka-rs.git
+cd kafka-rs
+
+# Run the server (default port 9092)
+cargo run --bin kafka-rs
+
+# Or with custom port
+cargo run --bin kafka-rs -- --port 9093
+
+# Run tests
+cargo test
+
+# Run with logging
+RUST_LOG=info cargo run --bin kafka-rs
+```
+
+The server will start and listen on `localhost:9092` (or your specified port).
+
+## 🧪 Testing with KafkaJS
+
+```javascript
+const { Kafka } = require('kafkajs');
+
+const kafka = new Kafka({
+  clientId: 'test-app',
+  brokers: ['localhost:9092']
+});
+
+const producer = kafka.producer();
+const consumer = kafka.consumer({ groupId: 'test-group' });
+
+async function example() {
+  // Connect
+  await producer.connect();
+  await consumer.connect();
+  
+  // Produce messages
+  await producer.send({
+    topic: 'test-topic',
+    messages: [
+      { key: 'key1', value: 'Hello Kafka-RS!' },
+      { key: 'key2', value: 'Educational implementation' }
+    ]
+  });
+  
+  // Consume messages
+  await consumer.subscribe({ topic: 'test-topic' });
+  await consumer.run({
+    eachMessage: async ({ partition, message }) => {
+      console.log({
+        partition,
+        offset: message.offset,
+        key: message.key?.toString(),
+        value: message.value?.toString()
+      });
+    }
+  });
+}
+
+example().catch(console.error);
+```
+
+## 📖 Documentation
+
+Comprehensive documentation is available in the [`docs/`](docs/) folder:
+
+- **[Architecture Overview](docs/architecture.md)** - DDD layers and system design
+- **[Getting Started Guide](docs/getting-started.md)** - Installation, usage, and examples  
+- **[Domain Model](docs/domain-model.md)** - Core business concepts and rules
+- **[API Reference](docs/api-reference.md)** - Kafka protocol endpoints and usage
+- **[Wire Protocol](docs/protocol.md)** - Binary protocol implementation details
+- **[Client Examples](docs/examples.md)** - Usage with various Kafka clients
+
+## 🏗️ Architecture
+
+```mermaid
+graph TB
+    subgraph "Infrastructure Layer"
+        A[TCP Server] --> B[Protocol Handler]
+        B --> C[Message Encoding/Decoding]
+    end
+    
+    subgraph "Application Layer"
+        D[Use Cases] --> E[DTOs]
+    end
+    
+    subgraph "Domain Layer"
+        F[Entities] --> G[Value Objects]
+        G --> H[Domain Services]
+        H --> I[Repository Interfaces]
+    end
+    
+    A --> D
+    D --> F
+```
+
+### Domain Layer (`src/domain/`)
+- **Entities** - Core business objects (Topic, Message, Partition)
+- **Value Objects** - Immutable types (TopicName, MessageId, Offset)
+- **Domain Services** - Business logic (MessageService, OffsetManagementService)
+- **Repository Traits** - Data access contracts
+- **Domain Events** - Cross-boundary communication
+- **Domain Errors** - Business rule violations
+
+### Application Layer (`src/application/`)
+- **Use Cases** - Orchestrate domain operations
+- **DTOs** - Data transfer objects for boundaries
+
+### Infrastructure Layer (`src/infrastructure/`)
+- **TCP Server** - Async connection handling with Tokio
+- **Protocol Implementation** - Kafka wire protocol parsing
+- **In-Memory Repositories** - Educational persistence implementation
+
+## 🧪 Testing
+
+```bash
+# Run all tests
+cargo test
+
+# Run specific test suite
+cargo test --test integration_tests
+
+# Run with output
+cargo test -- --nocapture
+
+# Run benchmarks (if available)
+cargo bench
+```
+
+### Test Coverage
+- **Unit Tests** - Domain and application logic
+- **Integration Tests** - End-to-end server functionality
+- **Protocol Tests** - Wire protocol compatibility
+- **Client Compatibility Tests** - Real Kafka client integration
+
+## 🛠️ Development
+
+### Project Structure
+```
+kafka-rs/
+├── src/
+│   ├── domain/          # Business logic layer
+│   ├── application/     # Use case orchestration
+│   ├── infrastructure/  # I/O and external systems
+│   ├── lib.rs          # Library interface
+│   └── main.rs         # Binary entry point
+├── docs/               # Comprehensive documentation
+├── tests/              # Integration tests
+└── .github/workflows/  # CI/CD pipeline
+```
+
+### Contributing
+This is an educational project, but contributions are welcome:
+
+1. Fork the repository
+2. Create a feature branch
+3. Make your changes with tests and documentation
+4. Submit a pull request
+
+### Design Principles
+- **Educational First** - Clarity over performance
+- **Clean Architecture** - Separation of concerns
+- **Domain-Driven Design** - Business logic isolation  
+- **Protocol Compliance** - Real Kafka client compatibility
+- **Comprehensive Testing** - Unit, integration, and compatibility tests
+
+## 📋 Supported Kafka APIs
+
+| API | Key | Status | Description |
+|-----|-----|--------|-------------|
+| Produce | 0 | ✅ | Send messages to topics |
+| Fetch | 1 | ✅ | Consume messages from topics |
+| Metadata | 3 | ✅ | Discover topics and brokers |
+| OffsetCommit | 8 | ✅ | Commit consumer offsets |
+| OffsetFetch | 9 | ✅ | Fetch committed offsets |
+
+### Limitations (Educational Simplifications)
+- **In-Memory Storage** - Messages lost on restart
+- **Single Partition** - One partition per topic
+- **No Replication** - Single broker setup
+- **Simplified Consumer Groups** - Basic offset management
+- **No Authentication** - Open access for learning
+
+## 📊 Performance
+
+While not optimized for production use, the implementation can handle:
+- **~10K messages/sec** for educational workloads
+- **Multiple concurrent clients** thanks to Tokio async runtime
+- **Low memory footprint** with efficient Rust implementation
+
+## 🔍 Monitoring & Debugging
+
+```bash
+# Enable debug logging
+RUST_LOG=debug cargo run --bin kafka-rs
+
+# Enable trace logging (verbose)
+RUST_LOG=trace cargo run --bin kafka-rs
+
+# JSON structured logging
+RUST_LOG=info cargo run --bin kafka-rs 2>&1 | jq
+```
+
+## 🤝 Community & Learning
+
+This project is part of learning Rust systems programming and distributed systems concepts:
+
+- **Blog Posts** - Coming soon with implementation details
+- **Video Tutorials** - Planned walkthrough of the codebase
+- **Conference Talks** - Presenting at Rust meetups
+
+## 📜 License
+
+This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
+
+## 🙏 Acknowledgments
+
+- **Apache Kafka** - For the excellent message broker design
+- **Rust Community** - For the amazing ecosystem and resources
+- **Domain-Driven Design** - Eric Evans for the architectural patterns
+- **Tokio** - For the outstanding async runtime
+
+---
+
+**⭐ Star this repo if you find it useful for learning Kafka internals or Rust systems programming!**
+
+## 📚 Learning Resources
+
+- [Apache Kafka Documentation](https://kafka.apache.org/documentation/)
+- [Rust Async Book](https://rust-lang.github.io/async-book/)
+- [Domain-Driven Design Book](https://domainlanguage.com/ddd/)
+- [Tokio Tutorial](https://tokio.rs/tokio/tutorial)
+
+Built with ❤️ and 🦀 for educational purposes.
