@@ -296,11 +296,12 @@ impl ConnectionHandler {
         header: RequestHeader,
         _buf: &mut BytesMut,
     ) -> anyhow::Result<()> {
-        debug!("Metadata request");
+        debug!("Metadata request for API version {}", header.api_version);
 
         match self.topic_management_use_case.list_topics().await {
             Ok(topics) => {
-                self.send_metadata_response(header.correlation_id, topics)
+                debug!("Found {} topics: {:?}", topics.len(), topics);
+                self.send_metadata_response(header.correlation_id, header.api_version, topics)
                     .await?;
             }
             Err(e) => {
@@ -503,78 +504,99 @@ impl ConnectionHandler {
     async fn send_metadata_response(
         &mut self,
         correlation_id: i32,
+        api_version: i16,
         topics: Vec<String>,
     ) -> anyhow::Result<()> {
+        debug!("Sending metadata response v{} with {} topics", api_version, topics.len());
+        
         let mut response = BytesMut::new();
 
         // Response header
         let header = ResponseHeader { correlation_id };
         header.encode(&mut response)?;
 
-        // Throttle time
-        encode_i32(&mut response, 0);
+        // For Metadata v1+ we include throttle time first
+        if api_version >= 1 {
+            encode_i32(&mut response, 0); // Throttle time
+        }
 
-        // Brokers
+        // Brokers array
         encode_i32(&mut response, 1); // One broker (ourselves)
+        {
+            // Broker ID
+            encode_i32(&mut response, 0);
 
-        // Broker ID
-        encode_i32(&mut response, 0);
+            // Host  
+            encode_string(&mut response, Some("localhost"))?;
 
-        // Host
-        encode_string(&mut response, Some("localhost"))?;
+            // Port
+            encode_i32(&mut response, self.stream.local_addr()?.port() as i32);
 
-        // Port
-        encode_i32(&mut response, self.stream.local_addr()?.port() as i32);
+            // For Metadata v1+ we include rack
+            if api_version >= 1 {
+                encode_string(&mut response, None)?; // Rack (nullable)
+            }
+        }
 
-        // Rack (nullable)
-        encode_string(&mut response, None)?;
+        // For Metadata v2+ we include cluster ID and controller ID
+        if api_version >= 2 {
+            encode_string(&mut response, Some("test-cluster"))?; // Cluster ID (shorter name)
+            encode_i32(&mut response, 0); // Controller ID
+        }
 
-        // Cluster ID (nullable)
-        encode_string(&mut response, Some("kafka-rs-cluster"))?;
-
-        // Controller ID
-        encode_i32(&mut response, 0);
-
-        // Topics
+        // Topics array - this is where the parsing error occurs
+        debug!("Encoding {} topics", topics.len());
         encode_i32(&mut response, topics.len() as i32);
 
-        for topic in topics {
-            // Error code
+        for (i, topic) in topics.iter().enumerate() {
+            debug!("Encoding topic {}: {}", i, topic);
+            
+            // Topic error code
             encode_i16(&mut response, 0);
 
             // Topic name
-            encode_string(&mut response, Some(&topic))?;
+            encode_string(&mut response, Some(topic))?;
 
-            // Is internal
-            encode_i8(&mut response, 0);
+            // For Metadata v1+ we include is_internal flag  
+            if api_version >= 1 {
+                encode_i8(&mut response, 0); // Is internal (false)
+            }
 
-            // Partitions
+            // Partitions array length
             encode_i32(&mut response, 1); // One partition per topic
 
-            // Error code
-            encode_i16(&mut response, 0);
+            // Partition info
+            {
+                // Partition error code
+                encode_i16(&mut response, 0);
 
-            // Partition index
-            encode_i32(&mut response, 0);
+                // Partition index
+                encode_i32(&mut response, 0);
 
-            // Leader
-            encode_i32(&mut response, 0);
+                // Leader
+                encode_i32(&mut response, 0);
 
-            // Leader epoch
-            encode_i32(&mut response, 0);
+                // For Metadata v2+ we include leader epoch
+                if api_version >= 2 {
+                    encode_i32(&mut response, 0); // Leader epoch
+                }
 
-            // Replicas
-            encode_i32(&mut response, 1);
-            encode_i32(&mut response, 0);
+                // Replicas array
+                encode_i32(&mut response, 1);
+                encode_i32(&mut response, 0);
 
-            // ISR
-            encode_i32(&mut response, 1);
-            encode_i32(&mut response, 0);
+                // ISR array
+                encode_i32(&mut response, 1);
+                encode_i32(&mut response, 0);
 
-            // Offline replicas
-            encode_i32(&mut response, 0);
+                // For Metadata v1+ we include offline replicas
+                if api_version >= 1 {
+                    encode_i32(&mut response, 0); // Offline replicas (empty array)
+                }
+            }
         }
 
+        debug!("Final response size: {} bytes", response.len());
         self.send_response(response).await
     }
 
