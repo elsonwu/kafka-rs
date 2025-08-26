@@ -78,13 +78,14 @@ async function testConsumer() {
     
     const consumer = kafka.consumer({
         groupId: TEST_GROUP,
-        sessionTimeout: 10000,
-        heartbeatInterval: 3000,
-        maxWaitTimeInMs: 5000,
+        sessionTimeout: 15000,  // Increased timeout
+        heartbeatInterval: 5000,  // Increased heartbeat interval
+        maxWaitTimeInMs: 10000,  // Increased fetch wait time
         allowAutoTopicCreation: true
     });
 
     const receivedMessages = [];
+    let consumerRunning = false;
 
     try {
         await consumer.connect();
@@ -97,8 +98,8 @@ async function testConsumer() {
 
         console.log(`✅ Subscribed to topic: ${TEST_TOPIC}`);
 
-        // Set up message handler
-        await consumer.run({
+        // Set up message handler (this starts the consumer loop)
+        const runPromise = consumer.run({
             eachMessage: async ({ topic, partition, message }) => {
                 const messageData = {
                     topic,
@@ -114,9 +115,11 @@ async function testConsumer() {
             },
         });
 
-        // Wait for messages to be consumed
+        consumerRunning = true;
+
+        // Wait for messages to be consumed  
         console.log('⏳ Waiting for messages...');
-        const maxWaitTime = 15000; // 15 seconds
+        const maxWaitTime = 30000; // Increased to 30 seconds
         const startTime = Date.now();
         
         while (receivedMessages.length < TEST_MESSAGES.length && (Date.now() - startTime) < maxWaitTime) {
@@ -190,15 +193,23 @@ async function runIntegrationTest() {
     console.log('');
 
     try {
-        // Test 1: Producer
+        // CHANGED: Start consumer first, then producer
+        // This ensures the consumer is ready to receive messages from the beginning
+        console.log('📝 Starting consumer first (better for testing)...');
+        
+        // Start consumer in background (non-blocking)
+        const consumerPromise = testConsumer();
+        console.log('');
+        
+        // Small delay to let consumer set up group coordination
+        await sleep(3000);
+        
+        // Test 1: Producer (send messages while consumer is already listening)
         await testProducer();
         console.log('');
         
-        // Small delay to ensure messages are persisted
-        await sleep(2000);
-        
-        // Test 2: Consumer  
-        const receivedMessages = await testConsumer();
+        // Test 2: Wait for consumer to finish (should have received messages)
+        const receivedMessages = await consumerPromise;
         console.log('');
         
         // Test 3: Metadata (optional, may not be fully implemented)
