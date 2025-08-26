@@ -422,20 +422,70 @@ pub struct ApiVersionsResponse {
     pub throttle_time_ms: i32,
 }
 
+impl Default for ApiVersionsResponse {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl ApiVersionsResponse {
     pub fn new() -> Self {
         let api_versions = vec![
-            ApiVersion { api_key: 0, min_version: 0, max_version: 3 },   // Produce
-            ApiVersion { api_key: 1, min_version: 0, max_version: 4 },   // Fetch  
-            ApiVersion { api_key: 3, min_version: 0, max_version: 2 },   // Metadata
-            ApiVersion { api_key: 8, min_version: 0, max_version: 2 },   // OffsetCommit
-            ApiVersion { api_key: 9, min_version: 0, max_version: 2 },   // OffsetFetch
-            ApiVersion { api_key: 10, min_version: 0, max_version: 1 },  // FindCoordinator
-            ApiVersion { api_key: 11, min_version: 0, max_version: 2 },  // JoinGroup
-            ApiVersion { api_key: 12, min_version: 0, max_version: 1 },  // Heartbeat
-            ApiVersion { api_key: 13, min_version: 0, max_version: 1 },  // LeaveGroup
-            ApiVersion { api_key: 14, min_version: 0, max_version: 1 },  // SyncGroup
-            ApiVersion { api_key: 18, min_version: 0, max_version: 2 },  // ApiVersions
+            ApiVersion {
+                api_key: 0,
+                min_version: 0,
+                max_version: 3,
+            }, // Produce
+            ApiVersion {
+                api_key: 1,
+                min_version: 0,
+                max_version: 4,
+            }, // Fetch
+            ApiVersion {
+                api_key: 3,
+                min_version: 0,
+                max_version: 2,
+            }, // Metadata
+            ApiVersion {
+                api_key: 8,
+                min_version: 0,
+                max_version: 2,
+            }, // OffsetCommit
+            ApiVersion {
+                api_key: 9,
+                min_version: 0,
+                max_version: 2,
+            }, // OffsetFetch
+            ApiVersion {
+                api_key: 10,
+                min_version: 0,
+                max_version: 1,
+            }, // FindCoordinator
+            ApiVersion {
+                api_key: 11,
+                min_version: 0,
+                max_version: 2,
+            }, // JoinGroup
+            ApiVersion {
+                api_key: 12,
+                min_version: 0,
+                max_version: 1,
+            }, // Heartbeat
+            ApiVersion {
+                api_key: 13,
+                min_version: 0,
+                max_version: 1,
+            }, // LeaveGroup
+            ApiVersion {
+                api_key: 14,
+                min_version: 0,
+                max_version: 1,
+            }, // SyncGroup
+            ApiVersion {
+                api_key: 18,
+                min_version: 0,
+                max_version: 2,
+            }, // ApiVersions
         ];
 
         ApiVersionsResponse {

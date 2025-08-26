@@ -13,8 +13,8 @@ use crate::{
     },
     infrastructure::protocol::{
         encode_bytes, encode_i16, encode_i32, encode_i64, encode_i8, encode_string, ApiKey,
-        FetchRequest, KafkaDecodable, KafkaEncodable, ProduceRequest, RequestHeader,
-        ResponseHeader, ApiVersionsRequest, ApiVersionsResponse,
+        ApiVersionsRequest, ApiVersionsResponse, FetchRequest, KafkaDecodable, KafkaEncodable,
+        ProduceRequest, RequestHeader, ResponseHeader,
     },
 };
 
@@ -345,7 +345,7 @@ impl ConnectionHandler {
         buf: &mut BytesMut,
     ) -> anyhow::Result<()> {
         debug!("API versions request");
-        
+
         // Try to decode the request (it might be empty for older clients)
         let _request = match ApiVersionsRequest::decode(buf) {
             Ok(req) => Some(req),
@@ -355,7 +355,8 @@ impl ConnectionHandler {
             }
         };
 
-        self.send_api_versions_response(header.correlation_id).await?;
+        self.send_api_versions_response(header.correlation_id)
+            .await?;
         Ok(())
     }
 
