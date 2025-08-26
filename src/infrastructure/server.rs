@@ -191,6 +191,9 @@ impl ConnectionHandler {
             ApiKey::ApiVersions => {
                 self.handle_api_versions_request(header, buf).await?;
             }
+            ApiKey::FindCoordinator => {
+                self.handle_find_coordinator_request(header, buf).await?;
+            }
             _ => {
                 warn!("Unsupported API key: {:?}", header.api_key);
                 self.send_error_response(header.correlation_id, -1).await?;
@@ -375,6 +378,18 @@ impl ConnectionHandler {
         Ok(())
     }
 
+    /// Handle find coordinator requests
+    async fn handle_find_coordinator_request(
+        &mut self,
+        header: RequestHeader,
+        _buf: &mut BytesMut,
+    ) -> anyhow::Result<()> {
+        debug!("Find coordinator request");
+        self.send_find_coordinator_response(header.correlation_id)
+            .await?;
+        Ok(())
+    }
+
     /// Handle offset commit requests
     async fn handle_offset_commit_request(
         &mut self,
@@ -436,7 +451,7 @@ impl ConnectionHandler {
         let header = ResponseHeader { correlation_id };
         header.encode(&mut response)?;
 
-        // Throttle time
+        // Throttle time (v1+)
         encode_i32(&mut response, 0);
 
         // Topic responses array
@@ -445,7 +460,7 @@ impl ConnectionHandler {
         // Topic name
         encode_string(&mut response, Some(topic))?;
 
-        // Partition responses array
+        // Partition responses array  
         encode_i32(&mut response, 1); // One partition
 
         // Partition index
@@ -457,11 +472,63 @@ impl ConnectionHandler {
         // Base offset
         encode_i64(&mut response, offsets.first().copied().unwrap_or(0) as i64);
 
-        // Log append time
+        // Log append time (v2+)
         encode_i64(&mut response, -1);
 
-        // Log start offset
+        // Log start offset (v5+, but KafkaJS might expect it in v3)
         encode_i64(&mut response, 0);
+
+        // Record errors array (v8+ but might be expected in v3 by some clients)
+        encode_i32(&mut response, 0); // No record errors
+
+        // Error message (v8+ nullable string, send empty for compatibility) 
+        encode_string(&mut response, None)?;
+
+        debug!(
+            "Sending PRODUCE response: {} bytes, correlation_id: {}, topic: {}, offset: {:?}",
+            response.len(),
+            correlation_id,
+            topic,
+            offsets.first()
+        );
+
+        self.send_response(response).await
+    }
+
+    /// Send find coordinator response
+    async fn send_find_coordinator_response(
+        &mut self,
+        correlation_id: i32,
+    ) -> anyhow::Result<()> {
+        let mut response = BytesMut::new();
+
+        // Response header
+        let header = ResponseHeader { correlation_id };
+        header.encode(&mut response)?;
+
+        // Throttle time (v1+)
+        encode_i32(&mut response, 0);
+
+        // Error code (0 = no error)
+        encode_i16(&mut response, 0);
+
+        // Error message (nullable string)
+        encode_string(&mut response, None)?;
+
+        // Node ID (coordinator broker ID)
+        encode_i32(&mut response, 0);
+
+        // Host (coordinator host)
+        encode_string(&mut response, Some("127.0.0.1"))?;
+
+        // Port (coordinator port)
+        encode_i32(&mut response, 9092);
+
+        debug!(
+            "Sending FindCoordinator response: {} bytes, correlation_id: {}",
+            response.len(),
+            correlation_id
+        );
 
         self.send_response(response).await
     }
