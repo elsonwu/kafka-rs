@@ -1,6 +1,6 @@
 use bytes::{Buf, BufMut, BytesMut};
-use std::io;
 use log::debug;
+use std::io;
 
 /// Kafka API keys for different request types
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -254,7 +254,7 @@ pub struct ProduceMessage {
 impl KafkaDecodable for ProduceRequest {
     fn decode(buf: &mut BytesMut) -> io::Result<Self> {
         debug!("Decoding PRODUCE request, buffer size: {}", buf.len());
-        
+
         // Skip transactional_id (nullable string) - v3+
         let _transactional_id = decode_string(buf)?;
         debug!("Decoded transactional_id");
@@ -308,15 +308,22 @@ impl KafkaDecodable for ProduceRequest {
         // RecordCount => INT32
         // Records => [Record]
 
-        debug!("Remaining buffer size before RecordBatch: {}", buf.remaining());
-        
+        debug!(
+            "Remaining buffer size before RecordBatch: {}",
+            buf.remaining()
+        );
+
         let record_batch_size = decode_i32(buf)?;
         debug!("RecordBatch size: {}", record_batch_size);
-        
+
         if buf.remaining() < record_batch_size as usize {
             return Err(io::Error::new(
                 io::ErrorKind::UnexpectedEof,
-                format!("Not enough bytes for RecordBatch: expected {}, got {}", record_batch_size, buf.remaining()),
+                format!(
+                    "Not enough bytes for RecordBatch: expected {}, got {}",
+                    record_batch_size,
+                    buf.remaining()
+                ),
             ));
         }
 

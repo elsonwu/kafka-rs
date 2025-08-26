@@ -460,7 +460,7 @@ impl ConnectionHandler {
         // Topic name
         encode_string(&mut response, Some(topic))?;
 
-        // Partition responses array  
+        // Partition responses array
         encode_i32(&mut response, 1); // One partition
 
         // Partition index
@@ -481,7 +481,7 @@ impl ConnectionHandler {
         // Record errors array (v8+ but might be expected in v3 by some clients)
         encode_i32(&mut response, 0); // No record errors
 
-        // Error message (v8+ nullable string, send empty for compatibility) 
+        // Error message (v8+ nullable string, send empty for compatibility)
         encode_string(&mut response, None)?;
 
         debug!(
@@ -496,10 +496,7 @@ impl ConnectionHandler {
     }
 
     /// Send find coordinator response
-    async fn send_find_coordinator_response(
-        &mut self,
-        correlation_id: i32,
-    ) -> anyhow::Result<()> {
+    async fn send_find_coordinator_response(&mut self, correlation_id: i32) -> anyhow::Result<()> {
         let mut response = BytesMut::new();
 
         // Response header
