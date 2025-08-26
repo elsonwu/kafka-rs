@@ -78,6 +78,50 @@ let metadata_versions = ApiVersionRange {
 
 ## Client Behavior Patterns
 
+### Topic Auto-Creation: Critical for Real-World Compatibility
+
+**Major Discovery**: Topic auto-creation is not optional - it's essential for KafkaJS compatibility.
+
+When we initially implemented metadata responses without auto-creation, we got:
+```
+❌ Producer test failed: Producing to topic without metadata
+```
+
+**The Fix**: Implementing auto-creation in metadata handler:
+
+```rust
+// In handle_metadata_request:
+let requested_topics = self.decode_metadata_request(buf)?;
+if let Some(requested) = requested_topics {
+    for requested_topic in requested {
+        if !topics.contains(&requested_topic) {
+            debug!("Auto-creating topic: {}", requested_topic);
+            self.topic_management_use_case
+                .create_topic(requested_topic.clone())
+                .await?;
+            topics.push(requested_topic);
+        }
+    }
+}
+```
+
+**Result**: Producer immediately works:
+```
+✅ Producer connected successfully  
+✅ Sent 3 messages: []
+✅ Producer disconnected successfully
+```
+
+**Protocol Flow with Auto-Creation**:
+```
+Client → METADATA request for "integration-test-topic"
+Server → Topic doesn't exist, auto-create it
+Server → Return METADATA response with new topic info
+Client → PRODUCE request (now has valid topic metadata)  
+Server → Store message at offset 0
+Server → Return PRODUCE response with offset
+```
+
 ### KafkaJS Producer Behavior
 
 Through extensive debugging, we mapped the exact sequence KafkaJS follows:

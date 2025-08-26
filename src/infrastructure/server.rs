@@ -207,6 +207,9 @@ impl ConnectionHandler {
             ApiKey::Heartbeat => {
                 self.handle_heartbeat_request(header, buf).await?;
             }
+            ApiKey::LeaveGroup => {
+                self.handle_leave_group_request(header, buf).await?;
+            }
             _ => {
                 warn!("Unsupported API key: {:?}", header.api_key);
                 self.send_error_response(header.correlation_id, -1).await?;
@@ -449,6 +452,17 @@ impl ConnectionHandler {
         Ok(())
     }
 
+    /// Handle leave group requests for consumer group coordination
+    async fn handle_leave_group_request(
+        &mut self,
+        header: RequestHeader,
+        _buf: &mut BytesMut,
+    ) -> anyhow::Result<()> {
+        debug!("Leave group request");
+        self.send_leave_group_response(header.correlation_id).await?;
+        Ok(())
+    }
+
     /// Handle offset commit requests
     async fn handle_offset_commit_request(
         &mut self,
@@ -503,9 +517,11 @@ impl ConnectionHandler {
         header: RequestHeader,
         _buf: &mut BytesMut,
     ) -> anyhow::Result<()> {
-        debug!("List offsets request - not fully implemented yet");
-        // For now, just send error response to indicate this is not implemented
-        self.send_error_response(header.correlation_id, -1).await?;
+        debug!("List offsets request");
+        // Return the highest available offset (high water mark)
+        // For our simple implementation, we'll return offset 1 (next available offset)
+        // since we have 1 message at offset 0
+        self.send_list_offsets_response(header.correlation_id).await?;
         Ok(())
     }
 
@@ -709,6 +725,29 @@ impl ConnectionHandler {
 
         debug!(
             "Sending Heartbeat response: {} bytes, correlation_id: {}",
+            response.len(),
+            correlation_id
+        );
+
+        self.send_response(response).await
+    }
+
+    /// Send leave group response for consumer group coordination
+    async fn send_leave_group_response(&mut self, correlation_id: i32) -> anyhow::Result<()> {
+        let mut response = BytesMut::new();
+
+        // Response header
+        let header = ResponseHeader { correlation_id };
+        header.encode(&mut response)?;
+
+        // Throttle time (v1+)
+        encode_i32(&mut response, 0);
+
+        // Error code (0 = no error)
+        encode_i16(&mut response, 0);
+
+        debug!(
+            "Sending LeaveGroup response: {} bytes, correlation_id: {}",
             response.len(),
             correlation_id
         );
@@ -947,8 +986,8 @@ impl ConnectionHandler {
         // Partition index
         encode_i32(&mut response, 0);
 
-        // Committed offset (return 0 so consumer knows where it left off)
-        encode_i64(&mut response, 0);
+        // Committed offset (-1 means no committed offset, consumer should start from beginning)
+        encode_i64(&mut response, -1);
 
         // Leader epoch (-1 means no epoch)
         encode_i32(&mut response, -1);
@@ -963,7 +1002,49 @@ impl ConnectionHandler {
         encode_i16(&mut response, 0);
 
         debug!(
-            "Sending OffsetFetch response: {} bytes, correlation_id: {}, telling consumer it left off at offset 0",
+            "Sending OffsetFetch response: {} bytes, correlation_id: {}, telling consumer no committed offset (start from beginning)",
+            response.len(),
+            correlation_id
+        );
+
+        self.send_response(response).await
+    }
+
+    /// Send list offsets response
+    async fn send_list_offsets_response(&mut self, correlation_id: i32) -> anyhow::Result<()> {
+        let mut response = BytesMut::new();
+
+        // Response header
+        let header = ResponseHeader { correlation_id };
+        header.encode(&mut response)?;
+
+        // Throttle time
+        encode_i32(&mut response, 0);
+
+        // Topics array (1 topic)
+        encode_i32(&mut response, 1);
+
+        // Topic name
+        encode_string(&mut response, Some("integration-test-topic"))?;
+
+        // Partitions array (1 partition)
+        encode_i32(&mut response, 1);
+
+        // Partition index
+        encode_i32(&mut response, 0);
+
+        // Error code (0 = no error)
+        encode_i16(&mut response, 0);
+
+        // Timestamp (-1 for unknown)
+        encode_i64(&mut response, -1);
+
+        // Offset (high water mark - next offset to write)
+        // If we have 1 message at offset 0, high water mark is 1
+        encode_i64(&mut response, 1);
+
+        debug!(
+            "Sending ListOffsets response: {} bytes, correlation_id: {}, high water mark: 1",
             response.len(),
             correlation_id
         );
