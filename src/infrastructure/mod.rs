@@ -1,7 +1,7 @@
 pub mod persistence;
-pub mod server;
 pub mod protocol;
+pub mod server;
 
 pub use persistence::*;
-pub use server::*;
 pub use protocol::*;
+pub use server::*;

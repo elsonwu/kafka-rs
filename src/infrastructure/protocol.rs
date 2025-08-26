@@ -1,5 +1,5 @@
-use std::io;
 use bytes::{Buf, BufMut, BytesMut};
+use std::io;
 
 /// Kafka API keys for different request types
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -69,7 +69,10 @@ pub fn encode_i8(buf: &mut BytesMut, value: i8) {
 
 pub fn decode_i8(buf: &mut BytesMut) -> io::Result<i8> {
     if buf.remaining() < 1 {
-        return Err(io::Error::new(io::ErrorKind::UnexpectedEof, "Not enough bytes"));
+        return Err(io::Error::new(
+            io::ErrorKind::UnexpectedEof,
+            "Not enough bytes",
+        ));
     }
     Ok(buf.get_i8())
 }
@@ -80,7 +83,10 @@ pub fn encode_i16(buf: &mut BytesMut, value: i16) {
 
 pub fn decode_i16(buf: &mut BytesMut) -> io::Result<i16> {
     if buf.remaining() < 2 {
-        return Err(io::Error::new(io::ErrorKind::UnexpectedEof, "Not enough bytes"));
+        return Err(io::Error::new(
+            io::ErrorKind::UnexpectedEof,
+            "Not enough bytes",
+        ));
     }
     Ok(buf.get_i16())
 }
@@ -91,7 +97,10 @@ pub fn encode_i32(buf: &mut BytesMut, value: i32) {
 
 pub fn decode_i32(buf: &mut BytesMut) -> io::Result<i32> {
     if buf.remaining() < 4 {
-        return Err(io::Error::new(io::ErrorKind::UnexpectedEof, "Not enough bytes"));
+        return Err(io::Error::new(
+            io::ErrorKind::UnexpectedEof,
+            "Not enough bytes",
+        ));
     }
     Ok(buf.get_i32())
 }
@@ -102,7 +111,10 @@ pub fn encode_i64(buf: &mut BytesMut, value: i64) {
 
 pub fn decode_i64(buf: &mut BytesMut) -> io::Result<i64> {
     if buf.remaining() < 8 {
-        return Err(io::Error::new(io::ErrorKind::UnexpectedEof, "Not enough bytes"));
+        return Err(io::Error::new(
+            io::ErrorKind::UnexpectedEof,
+            "Not enough bytes",
+        ));
     }
     Ok(buf.get_i64())
 }
@@ -133,9 +145,12 @@ pub fn decode_string(buf: &mut BytesMut) -> io::Result<Option<String>> {
         ));
     }
     if buf.remaining() < len as usize {
-        return Err(io::Error::new(io::ErrorKind::UnexpectedEof, "Not enough bytes"));
+        return Err(io::Error::new(
+            io::ErrorKind::UnexpectedEof,
+            "Not enough bytes",
+        ));
     }
-    
+
     let bytes = buf.split_to(len as usize);
     let s = String::from_utf8(bytes.to_vec())
         .map_err(|_| io::Error::new(io::ErrorKind::InvalidData, "Invalid UTF-8"))?;
@@ -167,9 +182,12 @@ pub fn decode_bytes(buf: &mut BytesMut) -> io::Result<Option<Vec<u8>>> {
         ));
     }
     if buf.remaining() < len as usize {
-        return Err(io::Error::new(io::ErrorKind::UnexpectedEof, "Not enough bytes"));
+        return Err(io::Error::new(
+            io::ErrorKind::UnexpectedEof,
+            "Not enough bytes",
+        ));
     }
-    
+
     let bytes = buf.split_to(len as usize);
     Ok(Some(bytes.to_vec()))
 }
@@ -192,7 +210,7 @@ impl KafkaDecodable for RequestHeader {
         let api_version = decode_i16(buf)?;
         let correlation_id = decode_i32(buf)?;
         let client_id = decode_string(buf)?;
-        
+
         Ok(RequestHeader {
             api_key,
             api_version,
@@ -234,11 +252,11 @@ impl KafkaDecodable for ProduceRequest {
     fn decode(buf: &mut BytesMut) -> io::Result<Self> {
         // Skip transactional_id (nullable string)
         let _transactional_id = decode_string(buf)?;
-        
+
         // Skip acks and timeout
         let _acks = decode_i16(buf)?;
         let _timeout = decode_i32(buf)?;
-        
+
         // Read topic array
         let topic_count = decode_i32(buf)?;
         if topic_count != 1 {
@@ -247,10 +265,10 @@ impl KafkaDecodable for ProduceRequest {
                 "Expected exactly one topic",
             ));
         }
-        
+
         let topic = decode_string(buf)?
             .ok_or_else(|| io::Error::new(io::ErrorKind::InvalidData, "Topic cannot be null"))?;
-        
+
         // Read partition array
         let partition_count = decode_i32(buf)?;
         if partition_count != 1 {
@@ -259,44 +277,44 @@ impl KafkaDecodable for ProduceRequest {
                 "Expected exactly one partition",
             ));
         }
-        
+
         let partition = decode_i32(buf)?;
-        
+
         // Read message set size
         let message_set_size = decode_i32(buf)?;
         let mut messages = Vec::new();
-        
+
         // Simple message parsing (very basic)
         let mut remaining = message_set_size as usize;
         while remaining > 0 && buf.remaining() >= 8 {
             let _offset = decode_i64(buf)?;
             let message_size = decode_i32(buf)?;
-            
+
             if message_size <= 0 || buf.remaining() < message_size as usize {
                 break;
             }
-            
+
             // Skip CRC
             let _crc = decode_i32(buf)?;
-            
+
             // Skip magic byte and attributes
             let _magic = decode_i8(buf)?;
             let _attributes = decode_i8(buf)?;
-            
+
             // Skip timestamp (if present)
             if buf.remaining() >= 8 {
                 let _timestamp = decode_i64(buf)?;
             }
-            
+
             // Read key and value
             let key = decode_bytes(buf)?;
             let value = decode_bytes(buf)?;
-            
+
             messages.push(ProduceMessage { key, value });
-            
+
             remaining = remaining.saturating_sub(12 + message_size as usize);
         }
-        
+
         Ok(ProduceRequest {
             topic,
             partition,
@@ -326,7 +344,7 @@ impl KafkaDecodable for FetchRequest {
         let _isolation_level = decode_i8(buf)?;
         let _session_id = decode_i32(buf)?;
         let _session_epoch = decode_i32(buf)?;
-        
+
         // Read topics
         let topic_count = decode_i32(buf)?;
         if topic_count != 1 {
@@ -335,10 +353,10 @@ impl KafkaDecodable for FetchRequest {
                 "Expected exactly one topic",
             ));
         }
-        
+
         let topic = decode_string(buf)?
             .ok_or_else(|| io::Error::new(io::ErrorKind::InvalidData, "Topic cannot be null"))?;
-        
+
         // Read partitions
         let partition_count = decode_i32(buf)?;
         if partition_count != 1 {
@@ -347,13 +365,13 @@ impl KafkaDecodable for FetchRequest {
                 "Expected exactly one partition",
             ));
         }
-        
+
         let partition = decode_i32(buf)?;
         let _current_leader_epoch = decode_i32(buf)?;
         let offset = decode_i64(buf)?;
         let _log_start_offset = decode_i64(buf)?;
         let max_bytes = decode_i32(buf)?;
-        
+
         Ok(FetchRequest {
             replica_id,
             max_wait,

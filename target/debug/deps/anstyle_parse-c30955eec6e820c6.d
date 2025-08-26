@@ -1,9 +1,0 @@
-/Users/elsonwu/www/kafka-rs/target/debug/deps/libanstyle_parse-c30955eec6e820c6.rmeta: /Users/elsonwu/.cargo/registry/src/mirrors.ustc.edu.cn-5857e57f01837ef8/anstyle-parse-0.2.7/src/lib.rs /Users/elsonwu/.cargo/registry/src/mirrors.ustc.edu.cn-5857e57f01837ef8/anstyle-parse-0.2.7/src/params.rs /Users/elsonwu/.cargo/registry/src/mirrors.ustc.edu.cn-5857e57f01837ef8/anstyle-parse-0.2.7/src/state/mod.rs /Users/elsonwu/.cargo/registry/src/mirrors.ustc.edu.cn-5857e57f01837ef8/anstyle-parse-0.2.7/src/state/definitions.rs /Users/elsonwu/.cargo/registry/src/mirrors.ustc.edu.cn-5857e57f01837ef8/anstyle-parse-0.2.7/src/state/table.rs
-
-/Users/elsonwu/www/kafka-rs/target/debug/deps/anstyle_parse-c30955eec6e820c6.d: /Users/elsonwu/.cargo/registry/src/mirrors.ustc.edu.cn-5857e57f01837ef8/anstyle-parse-0.2.7/src/lib.rs /Users/elsonwu/.cargo/registry/src/mirrors.ustc.edu.cn-5857e57f01837ef8/anstyle-parse-0.2.7/src/params.rs /Users/elsonwu/.cargo/registry/src/mirrors.ustc.edu.cn-5857e57f01837ef8/anstyle-parse-0.2.7/src/state/mod.rs /Users/elsonwu/.cargo/registry/src/mirrors.ustc.edu.cn-5857e57f01837ef8/anstyle-parse-0.2.7/src/state/definitions.rs /Users/elsonwu/.cargo/registry/src/mirrors.ustc.edu.cn-5857e57f01837ef8/anstyle-parse-0.2.7/src/state/table.rs
-
-/Users/elsonwu/.cargo/registry/src/mirrors.ustc.edu.cn-5857e57f01837ef8/anstyle-parse-0.2.7/src/lib.rs:
-/Users/elsonwu/.cargo/registry/src/mirrors.ustc.edu.cn-5857e57f01837ef8/anstyle-parse-0.2.7/src/params.rs:
-/Users/elsonwu/.cargo/registry/src/mirrors.ustc.edu.cn-5857e57f01837ef8/anstyle-parse-0.2.7/src/state/mod.rs:
-/Users/elsonwu/.cargo/registry/src/mirrors.ustc.edu.cn-5857e57f01837ef8/anstyle-parse-0.2.7/src/state/definitions.rs:
-/Users/elsonwu/.cargo/registry/src/mirrors.ustc.edu.cn-5857e57f01837ef8/anstyle-parse-0.2.7/src/state/table.rs:

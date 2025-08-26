@@ -1,7 +1,6 @@
+use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
-use chrono::{DateTime, Utc};
-use uuid::Uuid;
 
 use super::value_objects::*;
 
@@ -26,8 +25,8 @@ impl Topic {
     }
 
     /// Add a message to the topic (goes to partition 0 in this simplified implementation)
-    pub fn add_message(&mut self, mut message: Message) -> crate::domain::errors::Result<Offset> {
-        if let Some(partition) = self.partitions.get_mut(0) {
+    pub fn add_message(&mut self, message: Message) -> crate::domain::errors::Result<Offset> {
+        if let Some(partition) = self.partitions.first_mut() {
             let offset = partition.append_message(message);
             self.message_count += 1;
             Ok(offset)
@@ -38,7 +37,7 @@ impl Topic {
 
     /// Get messages from the specified offset
     pub fn get_messages(&self, from_offset: Offset, limit: usize) -> Vec<&Message> {
-        if let Some(partition) = self.partitions.get(0) {
+        if let Some(partition) = self.partitions.first() {
             partition.get_messages(from_offset, limit)
         } else {
             Vec::new()
@@ -53,7 +52,7 @@ impl Topic {
     /// Get the high watermark (highest offset) for partition 0
     pub fn get_high_watermark(&self) -> Offset {
         self.partitions
-            .get(0)
+            .first()
             .map(|p| p.get_high_watermark())
             .unwrap_or(Offset::new(0))
     }
@@ -91,11 +90,7 @@ impl Partition {
     /// Get messages starting from the specified offset
     pub fn get_messages(&self, from_offset: Offset, limit: usize) -> Vec<&Message> {
         let start_idx = from_offset.value() as usize;
-        self.messages
-            .iter()
-            .skip(start_idx)
-            .take(limit)
-            .collect()
+        self.messages.iter().skip(start_idx).take(limit).collect()
     }
 
     /// Get the highest committed offset
@@ -143,7 +138,11 @@ impl Message {
     pub fn size(&self) -> usize {
         self.value.len()
             + self.key.as_ref().map(|k| k.len()).unwrap_or(0)
-            + self.headers.iter().map(|(k, v)| k.len() + v.len()).sum::<usize>()
+            + self
+                .headers
+                .iter()
+                .map(|(k, v)| k.len() + v.len())
+                .sum::<usize>()
     }
 }
 
@@ -178,7 +177,10 @@ impl Consumer {
 
     /// Get the current offset for a topic-partition
     pub fn get_current_offset(&self, topic_partition: &TopicPartition) -> Offset {
-        self.offsets.get(topic_partition).copied().unwrap_or(Offset::new(0))
+        self.offsets
+            .get(topic_partition)
+            .copied()
+            .unwrap_or(Offset::new(0))
     }
 
     /// Commit an offset for a topic-partition

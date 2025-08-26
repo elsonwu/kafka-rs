@@ -1,13 +1,13 @@
 pub mod entities;
-pub mod value_objects;
-pub mod services;
-pub mod repositories;
-pub mod events;
 pub mod errors;
+pub mod events;
+pub mod repositories;
+pub mod services;
+pub mod value_objects;
 
 pub use entities::*;
-pub use value_objects::*;
-pub use services::*;
-pub use repositories::*;
-pub use events::*;
 pub use errors::*;
+pub use events::*;
+pub use repositories::*;
+pub use services::*;
+pub use value_objects::*;

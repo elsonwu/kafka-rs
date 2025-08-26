@@ -1,3 +1,6 @@
+#![allow(dead_code)]
+#![allow(unused_imports)]
+
 //! # Kafka-RS
 //!
 //! An educational implementation of Apache Kafka in Rust using Domain-Driven Design.
@@ -41,13 +44,13 @@
 //! }
 //! ```
 
-pub mod domain;
 pub mod application;
+pub mod domain;
 pub mod infrastructure;
 
 // Re-export commonly used types for convenience
-pub use domain::entities::{Message, Topic, Partition};
-pub use domain::value_objects::{TopicName, Offset, MessageId};
+pub use domain::entities::{Message, Partition, Topic};
 pub use domain::services::{MessageService, OffsetManagementService};
-pub use infrastructure::persistence::{InMemoryTopicRepository, InMemoryOffsetRepository};
+pub use domain::value_objects::{MessageId, Offset, TopicName};
+pub use infrastructure::persistence::{InMemoryOffsetRepository, InMemoryTopicRepository};
 pub use infrastructure::server::KafkaServer;

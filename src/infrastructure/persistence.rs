@@ -1,13 +1,8 @@
-use std::sync::Arc;
-use dashmap::DashMap;
 use async_trait::async_trait;
+use dashmap::DashMap;
+use std::sync::Arc;
 
-use crate::domain::{
-    entities::Topic,
-    value_objects::*,
-    repositories::*,
-    errors::RepositoryError,
-};
+use crate::domain::{entities::Topic, errors::RepositoryError, repositories::*, value_objects::*};
 
 /// In-memory implementation of the TopicRepository
 pub struct InMemoryTopicRepository {
@@ -40,7 +35,11 @@ impl TopicRepository for InMemoryTopicRepository {
     }
 
     async fn list_all(&self) -> Result<Vec<Topic>, RepositoryError> {
-        Ok(self.topics.iter().map(|entry| entry.value().clone()).collect())
+        Ok(self
+            .topics
+            .iter()
+            .map(|entry| entry.value().clone())
+            .collect())
     }
 
     async fn delete(&self, name: &TopicName) -> Result<(), RepositoryError> {

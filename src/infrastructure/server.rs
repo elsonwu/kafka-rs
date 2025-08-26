@@ -1,22 +1,20 @@
+use bytes::BytesMut;
+use log::{debug, error, info, warn};
 use std::sync::Arc;
-use tokio::net::{TcpListener, TcpStream};
 use tokio::io::{AsyncReadExt, AsyncWriteExt};
-use log::{info, debug, error, warn};
-use bytes::{BytesMut, BufMut};
+use tokio::net::{TcpListener, TcpStream};
 
 use crate::{
+    application::use_cases::*,
     domain::{
-        services::{MessageService, OffsetManagementService},
-        repositories::{TopicRepository, OffsetRepository},
         entities::Message,
-    },
-    application::{
-        use_cases::*,
+        repositories::{OffsetRepository, TopicRepository},
+        services::{MessageService, OffsetManagementService},
     },
     infrastructure::protocol::{
-        RequestHeader, ResponseHeader, ApiKey, KafkaDecodable, KafkaEncodable,
-        ProduceRequest, FetchRequest,
-        encode_i32, encode_i16, encode_i64, encode_string, encode_bytes, encode_i8,
+        encode_bytes, encode_i16, encode_i32, encode_i64, encode_i8, encode_string, ApiKey,
+        FetchRequest, KafkaDecodable, KafkaEncodable, ProduceRequest, RequestHeader,
+        ResponseHeader,
     },
 };
 
@@ -209,7 +207,8 @@ impl ConnectionHandler {
                     let key = msg.key.map(|k| String::from_utf8_lossy(&k).to_string());
                     let value = msg.value.unwrap_or_default();
 
-                    match self.send_message_use_case
+                    match self
+                        .send_message_use_case
                         .execute(request.topic.clone(), key, value)
                         .await
                     {
@@ -252,8 +251,9 @@ impl ConnectionHandler {
 
                 // Use a simple consumer ID based on connection
                 let consumer_id = format!("consumer-{}", header.correlation_id);
-                
-                match self.consume_messages_use_case
+
+                match self
+                    .consume_messages_use_case
                     .execute(consumer_id, request.topic.clone(), 100) // Max 100 messages
                     .await
                 {
@@ -264,7 +264,8 @@ impl ConnectionHandler {
                             &request.topic,
                             messages,
                             request.offset as u64,
-                        ).await?;
+                        )
+                        .await?;
                     }
                     Err(e) => {
                         error!("Failed to fetch messages: {}", e);
@@ -291,7 +292,8 @@ impl ConnectionHandler {
 
         match self.topic_management_use_case.list_topics().await {
             Ok(topics) => {
-                self.send_metadata_response(header.correlation_id, topics).await?;
+                self.send_metadata_response(header.correlation_id, topics)
+                    .await?;
             }
             Err(e) => {
                 error!("Failed to list topics: {}", e);
@@ -310,7 +312,8 @@ impl ConnectionHandler {
     ) -> anyhow::Result<()> {
         debug!("Offset commit request");
         // For now, just send success response
-        self.send_offset_commit_response(header.correlation_id).await?;
+        self.send_offset_commit_response(header.correlation_id)
+            .await?;
         Ok(())
     }
 
@@ -322,7 +325,8 @@ impl ConnectionHandler {
     ) -> anyhow::Result<()> {
         debug!("Offset fetch request");
         // For now, just send empty response
-        self.send_offset_fetch_response(header.correlation_id).await?;
+        self.send_offset_fetch_response(header.correlation_id)
+            .await?;
         Ok(())
     }
 
@@ -431,33 +435,33 @@ impl ConnectionHandler {
             for (i, message) in messages.iter().enumerate() {
                 // Offset
                 encode_i64(&mut records, start_offset as i64 + i as i64);
-                
+
                 // Message size calculation
                 let key_size = message.key.as_ref().map(|k| k.len()).unwrap_or(0);
                 let value_size = message.value.len();
                 let message_size = 4 + 1 + 1 + 8 + 4 + key_size + 4 + value_size;
-                
+
                 encode_i32(&mut records, message_size as i32);
-                
+
                 // CRC (dummy)
                 encode_i32(&mut records, 0);
-                
+
                 // Magic byte
                 encode_i8(&mut records, 1);
-                
+
                 // Attributes
                 encode_i8(&mut records, 0);
-                
+
                 // Timestamp
                 encode_i64(&mut records, message.timestamp.timestamp_millis());
-                
+
                 // Key
                 encode_bytes(&mut records, message.key.as_ref().map(|k| k.as_bytes()))?;
-                
+
                 // Value
                 encode_bytes(&mut records, Some(&message.value))?;
             }
-            
+
             encode_i32(&mut response, records.len() as i32);
             response.extend_from_slice(&records);
         }
@@ -582,7 +586,11 @@ impl ConnectionHandler {
     }
 
     /// Send error response
-    async fn send_error_response(&mut self, correlation_id: i32, error_code: i16) -> anyhow::Result<()> {
+    async fn send_error_response(
+        &mut self,
+        correlation_id: i32,
+        error_code: i16,
+    ) -> anyhow::Result<()> {
         let mut response = BytesMut::new();
 
         // Response header

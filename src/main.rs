@@ -1,13 +1,16 @@
+#![allow(dead_code)]
+#![allow(unused_imports)]
+
 use clap::Parser;
 use log::info;
 use std::sync::Arc;
 
+mod application;
 mod domain;
 mod infrastructure;
-mod application;
 
+use infrastructure::persistence::{InMemoryOffsetRepository, InMemoryTopicRepository};
 use infrastructure::server::KafkaServer;
-use infrastructure::persistence::{InMemoryTopicRepository, InMemoryOffsetRepository};
 
 #[derive(Parser)]
 #[command(author, version, about, long_about = None)]
@@ -37,12 +40,7 @@ async fn main() -> anyhow::Result<()> {
     let offset_repo = Arc::new(InMemoryOffsetRepository::new());
 
     // Create and start the server
-    let server = KafkaServer::new(
-        args.host,
-        args.port,
-        topic_repo,
-        offset_repo,
-    );
+    let server = KafkaServer::new(args.host, args.port, topic_repo, offset_repo);
 
     server.start().await?;
 
