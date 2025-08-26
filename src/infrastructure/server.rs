@@ -12,10 +12,9 @@ use crate::{
         services::{MessageService, OffsetManagementService},
     },
     infrastructure::protocol::{
-        encode_bytes, encode_i16, encode_i32, encode_i64, encode_i8, encode_string,
-        decode_i32, decode_string, ApiKey,
-        ApiVersionsRequest, ApiVersionsResponse, FetchRequest, KafkaDecodable, KafkaEncodable,
-        ProduceRequest, RequestHeader, ResponseHeader,
+        decode_i32, decode_string, encode_bytes, encode_i16, encode_i32, encode_i64, encode_i8,
+        encode_string, ApiKey, ApiVersionsRequest, ApiVersionsResponse, FetchRequest,
+        KafkaDecodable, KafkaEncodable, ProduceRequest, RequestHeader, ResponseHeader,
     },
 };
 
@@ -292,7 +291,10 @@ impl ConnectionHandler {
     }
 
     /// Decode metadata request to extract requested topics
-    fn decode_metadata_request(&mut self, buf: &mut BytesMut) -> anyhow::Result<Option<Vec<String>>> {
+    fn decode_metadata_request(
+        &mut self,
+        buf: &mut BytesMut,
+    ) -> anyhow::Result<Option<Vec<String>>> {
         if buf.remaining() < 4 {
             return Ok(None);
         }
@@ -335,16 +337,27 @@ impl ConnectionHandler {
 
         match self.topic_management_use_case.list_topics().await {
             Ok(mut topics) => {
-                // If specific topics were requested, include them even if they don't exist yet
+                // If specific topics were requested, create them if they don't exist
                 if let Some(requested) = requested_topics {
                     for requested_topic in requested {
                         if !topics.contains(&requested_topic) {
                             debug!("Auto-creating topic: {}", requested_topic);
-                            topics.push(requested_topic);
+                            // Actually create the topic, not just add it to the response
+                            match self.topic_management_use_case.create_topic(requested_topic.clone()).await {
+                                Ok(_) => {
+                                    debug!("Successfully created topic: {}", requested_topic);
+                                    topics.push(requested_topic);
+                                }
+                                Err(e) => {
+                                    warn!("Failed to create topic {}: {}", requested_topic, e);
+                                    // Still add to response to avoid client errors
+                                    topics.push(requested_topic);
+                                }
+                            }
                         }
                     }
                 }
-                
+
                 debug!("Found {} topics: {:?}", topics.len(), topics);
                 self.send_metadata_response(header.correlation_id, header.api_version, topics)
                     .await?;
@@ -552,8 +565,12 @@ impl ConnectionHandler {
         api_version: i16,
         topics: Vec<String>,
     ) -> anyhow::Result<()> {
-        debug!("Sending metadata response v{} with {} topics", api_version, topics.len());
-        
+        debug!(
+            "Sending metadata response v{} with {} topics",
+            api_version,
+            topics.len()
+        );
+
         let mut response = BytesMut::new();
 
         // Response header
@@ -568,7 +585,7 @@ impl ConnectionHandler {
             // Broker ID
             encode_i32(&mut response, 0);
 
-            // Host  
+            // Host
             encode_string(&mut response, Some("localhost"))?;
 
             // Port
@@ -585,7 +602,7 @@ impl ConnectionHandler {
             encode_string(&mut response, Some("test-cluster"))?; // Cluster ID
         }
 
-        // For Metadata v1+ we include controller ID  
+        // For Metadata v1+ we include controller ID
         if api_version >= 1 {
             encode_i32(&mut response, 0); // Controller ID
         }
@@ -596,14 +613,14 @@ impl ConnectionHandler {
 
         for (i, topic) in topics.iter().enumerate() {
             debug!("Encoding topic {}: {}", i, topic);
-            
+
             // Topic error code
             encode_i16(&mut response, 0);
 
             // Topic name
             encode_string(&mut response, Some(topic))?;
 
-            // For Metadata v1+ we include is_internal flag  
+            // For Metadata v1+ we include is_internal flag
             if api_version >= 1 {
                 encode_i8(&mut response, 0); // Is internal (false)
             }
