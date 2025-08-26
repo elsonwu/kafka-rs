@@ -194,6 +194,15 @@ impl ConnectionHandler {
             ApiKey::FindCoordinator => {
                 self.handle_find_coordinator_request(header, buf).await?;
             }
+            ApiKey::JoinGroup => {
+                self.handle_join_group_request(header, buf).await?;
+            }
+            ApiKey::SyncGroup => {
+                self.handle_sync_group_request(header, buf).await?;
+            }
+            ApiKey::Heartbeat => {
+                self.handle_heartbeat_request(header, buf).await?;
+            }
             _ => {
                 warn!("Unsupported API key: {:?}", header.api_key);
                 self.send_error_response(header.correlation_id, -1).await?;
@@ -390,6 +399,39 @@ impl ConnectionHandler {
         Ok(())
     }
 
+    /// Handle join group requests for consumer group coordination
+    async fn handle_join_group_request(
+        &mut self,
+        header: RequestHeader,
+        _buf: &mut BytesMut,
+    ) -> anyhow::Result<()> {
+        debug!("Join group request");
+        self.send_join_group_response(header.correlation_id).await?;
+        Ok(())
+    }
+
+    /// Handle sync group requests for consumer group coordination
+    async fn handle_sync_group_request(
+        &mut self,
+        header: RequestHeader,
+        _buf: &mut BytesMut,
+    ) -> anyhow::Result<()> {
+        debug!("Sync group request");
+        self.send_sync_group_response(header.correlation_id).await?;
+        Ok(())
+    }
+
+    /// Handle heartbeat requests for consumer group coordination
+    async fn handle_heartbeat_request(
+        &mut self,
+        header: RequestHeader,
+        _buf: &mut BytesMut,
+    ) -> anyhow::Result<()> {
+        debug!("Heartbeat request");
+        self.send_heartbeat_response(header.correlation_id).await?;
+        Ok(())
+    }
+
     /// Handle offset commit requests
     async fn handle_offset_commit_request(
         &mut self,
@@ -523,6 +565,121 @@ impl ConnectionHandler {
 
         debug!(
             "Sending FindCoordinator response: {} bytes, correlation_id: {}",
+            response.len(),
+            correlation_id
+        );
+
+        self.send_response(response).await
+    }
+
+    /// Send join group response for consumer group coordination
+    async fn send_join_group_response(&mut self, correlation_id: i32) -> anyhow::Result<()> {
+        let mut response = BytesMut::new();
+
+        // Response header
+        let header = ResponseHeader { correlation_id };
+        header.encode(&mut response)?;
+
+        // Throttle time (v2+)
+        encode_i32(&mut response, 0);
+
+        // Error code (0 = no error)
+        encode_i16(&mut response, 0);
+
+        // Generation ID
+        encode_i32(&mut response, 1);
+
+        // Protocol name (use a basic protocol)
+        encode_string(&mut response, Some("RoundRobinAssigner"))?;
+
+        // Leader ID (make this member the leader for simplicity)
+        let member_id = "consumer-1";
+        encode_string(&mut response, Some(member_id))?;
+
+        // Member ID (same as leader for single member)
+        encode_string(&mut response, Some(member_id))?;
+
+        // Members array
+        encode_i32(&mut response, 1); // One member
+
+        // Member ID
+        encode_string(&mut response, Some(member_id))?;
+
+        // Member metadata (empty for basic implementation)
+        encode_i32(&mut response, 0); // Empty bytes
+
+        debug!(
+            "Sending JoinGroup response: {} bytes, correlation_id: {}",
+            response.len(),
+            correlation_id
+        );
+
+        self.send_response(response).await
+    }
+
+    /// Send sync group response for consumer group coordination
+    async fn send_sync_group_response(&mut self, correlation_id: i32) -> anyhow::Result<()> {
+        let mut response = BytesMut::new();
+
+        // Response header
+        let header = ResponseHeader { correlation_id };
+        header.encode(&mut response)?;
+
+        // Throttle time (v1+)
+        encode_i32(&mut response, 0);
+
+        // Error code (0 = no error)
+        encode_i16(&mut response, 0);
+
+        // Assignment (member assignment, serialize a simple assignment)
+        // For basic implementation, assign all partitions to this member
+        let mut assignment = BytesMut::new();
+        
+        // Assignment version (int16)
+        encode_i16(&mut assignment, 0);
+        
+        // Topic assignments array
+        encode_i32(&mut assignment, 1); // One topic
+        
+        // Topic name
+        encode_string(&mut assignment, Some("integration-test-topic"))?;
+        
+        // Partitions array for this topic
+        encode_i32(&mut assignment, 1); // One partition
+        encode_i32(&mut assignment, 0); // Partition 0
+
+        // User data (empty)
+        encode_i32(&mut assignment, 0); // Empty user data
+
+        // Encode assignment as bytes
+        encode_i32(&mut response, assignment.len() as i32);
+        response.extend_from_slice(&assignment);
+
+        debug!(
+            "Sending SyncGroup response: {} bytes, correlation_id: {}",
+            response.len(),
+            correlation_id
+        );
+
+        self.send_response(response).await
+    }
+
+    /// Send heartbeat response for consumer group coordination
+    async fn send_heartbeat_response(&mut self, correlation_id: i32) -> anyhow::Result<()> {
+        let mut response = BytesMut::new();
+
+        // Response header
+        let header = ResponseHeader { correlation_id };
+        header.encode(&mut response)?;
+
+        // Throttle time (v1+)
+        encode_i32(&mut response, 0);
+
+        // Error code (0 = no error)
+        encode_i16(&mut response, 0);
+
+        debug!(
+            "Sending Heartbeat response: {} bytes, correlation_id: {}",
             response.len(),
             correlation_id
         );
@@ -749,11 +906,38 @@ impl ConnectionHandler {
         // Throttle time
         encode_i32(&mut response, 0);
 
-        // Topics (empty for now)
+        // Topics array (1 topic)
+        encode_i32(&mut response, 1);
+
+        // Topic name
+        encode_string(&mut response, Some("integration-test-topic"))?;
+
+        // Partitions array (1 partition)
+        encode_i32(&mut response, 1);
+
+        // Partition index
         encode_i32(&mut response, 0);
 
-        // Error code
+        // Committed offset (-1 means no committed offset, consumer should start from beginning)
+        encode_i64(&mut response, -1);
+
+        // Leader epoch (-1 means no epoch)
+        encode_i32(&mut response, -1);
+
+        // Metadata (empty)
+        encode_string(&mut response, None)?;
+
+        // Error code (0 = no error)
         encode_i16(&mut response, 0);
+
+        // Global error code (v8+, but include for compatibility)
+        encode_i16(&mut response, 0);
+
+        debug!(
+            "Sending OffsetFetch response: {} bytes, correlation_id: {}, telling consumer to start from beginning",
+            response.len(),
+            correlation_id
+        );
 
         self.send_response(response).await
     }
