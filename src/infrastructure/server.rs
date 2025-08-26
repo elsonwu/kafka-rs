@@ -159,6 +159,7 @@ impl ConnectionHandler {
             match header.api_key {
                 ApiKey::Produce => "PRODUCE",
                 ApiKey::Fetch => "FETCH",
+                ApiKey::ListOffsets => "LIST_OFFSETS",
                 ApiKey::Metadata => "METADATA",
                 ApiKey::OffsetCommit => "OFFSET_COMMIT",
                 ApiKey::OffsetFetch => "OFFSET_FETCH",
@@ -493,6 +494,18 @@ impl ConnectionHandler {
 
         self.send_api_versions_response(header.correlation_id)
             .await?;
+        Ok(())
+    }
+
+    /// Handle list offsets requests
+    async fn handle_list_offsets_request(
+        &mut self,
+        header: RequestHeader,
+        _buf: &mut BytesMut,
+    ) -> anyhow::Result<()> {
+        debug!("List offsets request - not fully implemented yet");
+        // For now, just send error response to indicate this is not implemented
+        self.send_error_response(header.correlation_id, -1).await?;
         Ok(())
     }
 
