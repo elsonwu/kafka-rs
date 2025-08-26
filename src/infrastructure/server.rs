@@ -210,10 +210,6 @@ impl ConnectionHandler {
             ApiKey::LeaveGroup => {
                 self.handle_leave_group_request(header, buf).await?;
             }
-            _ => {
-                warn!("Unsupported API key: {:?}", header.api_key);
-                self.send_error_response(header.correlation_id, -1).await?;
-            }
         }
 
         Ok(())
