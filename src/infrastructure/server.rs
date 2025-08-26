@@ -459,7 +459,8 @@ impl ConnectionHandler {
         _buf: &mut BytesMut,
     ) -> anyhow::Result<()> {
         debug!("Leave group request");
-        self.send_leave_group_response(header.correlation_id).await?;
+        self.send_leave_group_response(header.correlation_id)
+            .await?;
         Ok(())
     }
 
@@ -521,7 +522,8 @@ impl ConnectionHandler {
         // Return the highest available offset (high water mark)
         // For our simple implementation, we'll return offset 1 (next available offset)
         // since we have 1 message at offset 0
-        self.send_list_offsets_response(header.correlation_id).await?;
+        self.send_list_offsets_response(header.correlation_id)
+            .await?;
         Ok(())
     }
 

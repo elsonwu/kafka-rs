@@ -44,7 +44,7 @@ format: ## Auto-format all code
 	@echo "🎨 Formatting code..."
 	@./scripts/format.sh
 
-# Run linting
+# Run linting checks
 lint: ## Run linting checks
 	@echo "📋 Running linting checks..."
 	@cargo fmt --all -- --check
@@ -97,38 +97,10 @@ check-all: format lint test ## Run all checks
 quick: format build test ## Quick development check
 	@echo "🏃 Quick development check complete!"
 
-lint: ## Run clippy linter
-	@echo "📎 Running clippy..."
-	cargo clippy --all-targets --all-features -- -D warnings
-
-test: ## Run all tests
-	@echo "🧪 Running tests..."
-	cargo test --verbose --all-features
-
-build: ## Build the project
-	@echo "🔨 Building project..."
-	cargo build --verbose --all-targets
-
-build-release: ## Build in release mode
-	@echo "🚀 Building release..."
-	cargo build --release
-
-integration-test: ## Run integration tests with KafkaJS client
-	@echo "🔌 Running integration tests..."
-	cd integration/kafka-client-test && npm test
-
-server: ## Start the Kafka server
-	@echo "⚡ Starting Kafka-RS server..."
-	cargo run --release
-
-fix: format lint ## Fix formatting and linting issues
-
-clean: ## Clean build artifacts
-	@echo "🧹 Cleaning..."
-	cargo clean
-
+# Pre-commit workflow
 pre-commit: format lint test ## Run pre-commit checks (format, lint, test)
 	@echo "✅ Pre-commit checks passed!"
 
-ci: check lint test ## Run CI checks locally
+# CI workflow  
+ci: format lint test ## Run CI checks locally
 	@echo "✅ CI checks passed!"
