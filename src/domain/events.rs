@@ -109,11 +109,7 @@ pub struct OffsetCommitted {
 }
 
 impl OffsetCommitted {
-    pub fn new(
-        consumer_id: ConsumerId,
-        topic_partition: TopicPartition,
-        offset: Offset,
-    ) -> Self {
+    pub fn new(consumer_id: ConsumerId, topic_partition: TopicPartition, offset: Offset) -> Self {
         Self {
             consumer_id,
             topic_partition,

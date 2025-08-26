@@ -1,6 +1,6 @@
+use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
-use chrono::{DateTime, Utc};
 use uuid::Uuid;
 
 use super::value_objects::*;
@@ -91,11 +91,7 @@ impl Partition {
     /// Get messages starting from the specified offset
     pub fn get_messages(&self, from_offset: Offset, limit: usize) -> Vec<&Message> {
         let start_idx = from_offset.value() as usize;
-        self.messages
-            .iter()
-            .skip(start_idx)
-            .take(limit)
-            .collect()
+        self.messages.iter().skip(start_idx).take(limit).collect()
     }
 
     /// Get the highest committed offset
@@ -143,7 +139,11 @@ impl Message {
     pub fn size(&self) -> usize {
         self.value.len()
             + self.key.as_ref().map(|k| k.len()).unwrap_or(0)
-            + self.headers.iter().map(|(k, v)| k.len() + v.len()).sum::<usize>()
+            + self
+                .headers
+                .iter()
+                .map(|(k, v)| k.len() + v.len())
+                .sum::<usize>()
     }
 }
 
@@ -178,7 +178,10 @@ impl Consumer {
 
     /// Get the current offset for a topic-partition
     pub fn get_current_offset(&self, topic_partition: &TopicPartition) -> Offset {
-        self.offsets.get(topic_partition).copied().unwrap_or(Offset::new(0))
+        self.offsets
+            .get(topic_partition)
+            .copied()
+            .unwrap_or(Offset::new(0))
     }
 
     /// Commit an offset for a topic-partition

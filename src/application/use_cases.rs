@@ -1,12 +1,7 @@
+use log::{debug, info};
 use std::sync::Arc;
-use log::{info, debug};
 
-use crate::domain::{
-    entities::*,
-    value_objects::*,
-    services::*,
-    errors::*,
-};
+use crate::domain::{entities::*, errors::*, services::*, value_objects::*};
 
 /// Use case for sending messages to topics
 pub struct SendMessageUseCase {
@@ -31,9 +26,7 @@ impl SendMessageUseCase {
         info!("Sending message to topic: {}", topic_name);
         debug!("Message size: {} bytes", message.size());
 
-        self.message_service
-            .send_message(topic_name, message)
-            .await
+        self.message_service.send_message(topic_name, message).await
     }
 
     /// Send multiple messages to a topic
@@ -45,11 +38,16 @@ impl SendMessageUseCase {
         let topic_name = TopicName::new(topic_name)?;
         let mut offsets = Vec::new();
 
-        info!("Sending {} messages to topic: {}", messages.len(), topic_name);
+        info!(
+            "Sending {} messages to topic: {}",
+            messages.len(),
+            topic_name
+        );
 
         for (key, value) in messages {
             let message = Message::new(key, value);
-            let offset = self.message_service
+            let offset = self
+                .message_service
                 .send_message(topic_name.clone(), message)
                 .await?;
             offsets.push(offset);
@@ -104,7 +102,11 @@ impl ConsumeMessagesUseCase {
             .get_messages(&topic_name, current_offset, max_messages)
             .await?;
 
-        debug!("Retrieved {} messages for consumer {}", messages.len(), consumer_id);
+        debug!(
+            "Retrieved {} messages for consumer {}",
+            messages.len(),
+            consumer_id
+        );
 
         Ok(messages)
     }
@@ -145,7 +147,7 @@ impl TopicManagementUseCase {
     /// Create a new topic
     pub async fn create_topic(&self, topic_name: String) -> Result<()> {
         let topic_name = TopicName::new(topic_name)?;
-        
+
         info!("Creating topic: {}", topic_name);
         self.message_service.create_topic(topic_name).await
     }

@@ -1,10 +1,6 @@
 use async_trait::async_trait;
 
-use super::{
-    entities::*,
-    value_objects::*,
-    errors::RepositoryError,
-};
+use super::{entities::*, errors::RepositoryError, value_objects::*};
 
 /// Repository for managing topics
 #[async_trait]
