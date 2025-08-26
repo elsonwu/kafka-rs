@@ -209,8 +209,77 @@ The integration test:
 
 ## 🛠️ Development
 
-### Project Structure
+### Quick Development Commands
+
+We provide a `Makefile` with common development tasks:
+
+```bash
+# Show all available commands
+make help
+
+# Format code (fixes formatting issues automatically)
+make format
+
+# Check formatting without making changes  
+make check
+
+# Run linting with clippy
+make lint
+
+# Run all tests
+make test
+
+# Build the project
+make build
+
+# Build in release mode
+make build-release
+
+# Start the Kafka server
+make server
+
+# Fix formatting and linting issues
+make fix
+
+# Run integration tests with real Kafka clients
+make integration-test
+
+# Run pre-commit checks (format + lint + test)
+make pre-commit
+
+# Run CI checks locally
+make ci
 ```
+
+### Development Workflow
+
+1. **Before making changes:**
+
+   ```bash
+   make ci  # Ensure everything is working
+   ```
+
+2. **After making changes:**
+
+   ```bash
+   make fix      # Auto-fix formatting and linting
+   make test     # Run tests
+   make ci       # Final check before commit
+   ```
+
+3. **Before committing:**
+
+   ```bash
+   make pre-commit  # Comprehensive pre-commit checks
+   ```
+
+### Formatting Configuration
+
+The project uses `rustfmt.toml` for consistent code formatting. The CI will automatically check formatting and provide helpful error messages if issues are found.
+
+### Project Structure
+
+```text
 kafka-rs/
 ├── src/
 │   ├── domain/          # Business logic layer
@@ -226,14 +295,25 @@ kafka-rs/
 ```
 
 ### Contributing
+
 This is an educational project, but contributions are welcome:
 
 1. Fork the repository
-2. Create a feature branch
+2. Create a feature branch with descriptive name (e.g., `feat/consumer-groups`)
 3. Make your changes with tests and documentation
-4. Submit a pull request
+4. Use conventional commits (e.g., `feat:`, `fix:`, `chore:`, `docs:`)
+5. Run `make pre-commit` to ensure code quality
+6. Submit a pull request with conventional commit title
+
+**Conventional Commit Examples:**
+
+- `feat: add consumer group coordination`
+- `fix: resolve metadata response parsing issue`  
+- `chore: update CI workflow configuration`
+- `docs: improve getting started guide`
 
 ### Design Principles
+
 - **Educational First** - Clarity over performance
 - **Clean Architecture** - Separation of concerns
 - **Domain-Driven Design** - Business logic isolation  
@@ -251,6 +331,7 @@ This is an educational project, but contributions are welcome:
 | OffsetFetch | 9 | ✅ | Fetch committed offsets |
 
 ### Limitations (Educational Simplifications)
+
 - **In-Memory Storage** - Messages lost on restart
 - **Single Partition** - One partition per topic
 - **No Replication** - Single broker setup
@@ -260,6 +341,7 @@ This is an educational project, but contributions are welcome:
 ## 📊 Performance
 
 While not optimized for production use, the implementation can handle:
+
 - **~10K messages/sec** for educational workloads
 - **Multiple concurrent clients** thanks to Tokio async runtime
 - **Low memory footprint** with efficient Rust implementation
