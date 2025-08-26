@@ -1,0 +1,39 @@
+[package]
+name = "kafka-rs"
+version = "0.1.0"
+edition = "2021"
+authors = ["Your Name <your.email@example.com>"]
+description = "Educational implementation of Apache Kafka in Rust using Domain-Driven Design"
+license = "MIT"
+repository = "https://github.com/yourusername/kafka-rs"
+keywords = ["kafka", "messaging", "ddd", "educational", "rust"]
+categories = ["network-programming", "asynchronous"]
+
+# Binary target for the server
+[[bin]]
+name = "kafka-rs"
+path = "src/main.rs"
+
+# Library target for reusable components
+[lib]
+name = "kafka_rs"
+path = "src/lib.rs"
+
+[dependencies]
+tokio = { version = "1.0", features = ["full"] }
+serde = { version = "1.0", features = ["derive"] }
+serde_json = "1.0"
+uuid = { version = "1.0", features = ["v4", "serde"] }
+bytes = "1.4"
+log = "0.4"
+env_logger = "0.10"
+clap = { version = "4.0", features = ["derive"] }
+thiserror = "1.0"
+anyhow = "1.0"
+dashmap = "5.5"
+parking_lot = "0.12"
+async-trait = "0.1"
+chrono = { version = "0.4", features = ["serde"] }
+
+[dev-dependencies]
+tokio-test = "0.4"
