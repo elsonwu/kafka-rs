@@ -39,18 +39,35 @@ jobs:
         if ! cargo fmt --all -- --check; then
           echo "❌ Code formatting issues detected!"
           echo ""
-          echo "💡 To fix formatting issues locally, run:"
-          echo "   cargo fmt --all"
+          echo "🔧 Auto-fixing locally..."
+          cargo fmt --all
           echo ""
-          echo "📝 The following files need formatting:"
-          # Show which files need formatting
-          cargo fmt --all -- --check --verbose || true
+          echo "� Formatting has been fixed. The following files were updated:"
+          git diff --name-only || true
           echo ""
-          echo "🔧 Consider setting up a pre-commit hook to auto-format code"
+          echo "📋 To resolve this CI failure:"
+          echo "1. Run 'cargo fmt --all' or 'scripts/format.sh' locally"
+          echo "2. Commit the formatting changes"
+          echo "3. Push the changes to update this PR"
+          echo ""
+          echo "🔗 Or set up auto-formatting:"
+          echo "   ln -sf ../../scripts/pre-commit.sh .git/hooks/pre-commit"
           exit 1
         else
           echo "✅ Code formatting is correct"
         fi
+
+    - name: Run Clippy
+      run: cargo clippy --all-targets --all-features -- -D warnings
+
+    - name: Build project
+      run: cargo build --verbose --all-targets
+
+    - name: Run tests
+      run: cargo test --verbose --all-features
+
+    - name: Run doctests
+      run: cargo test --doc --verbose
 
     - name: Run Clippy
       run: cargo clippy --all-targets --all-features -- -D warnings

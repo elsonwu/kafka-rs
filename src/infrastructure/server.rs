@@ -310,8 +310,11 @@ impl ConnectionHandler {
         &mut self,
         buf: &mut BytesMut,
     ) -> anyhow::Result<Option<Vec<String>>> {
-        debug!("Decoding metadata request, buffer size: {}", buf.remaining());
-        
+        debug!(
+            "Decoding metadata request, buffer size: {}",
+            buf.remaining()
+        );
+
         if buf.remaining() < 4 {
             debug!("Buffer too small for topics count");
             return Ok(None);
@@ -328,7 +331,7 @@ impl ConnectionHandler {
         }
 
         if topics_count == 0 {
-            // Empty array means all topics  
+            // Empty array means all topics
             debug!("Empty topics array - requesting all topics");
             return Ok(None);
         }

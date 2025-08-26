@@ -115,12 +115,19 @@ example().catch(console.error);
 
 Comprehensive documentation is available in the [`docs/`](docs/) folder:
 
+### Core Documentation
 - **[Architecture Overview](docs/architecture.md)** - DDD layers and system design
 - **[Getting Started Guide](docs/getting-started.md)** - Installation, usage, and examples  
 - **[Domain Model](docs/domain-model.md)** - Core business concepts and rules
 - **[API Reference](docs/api-reference.md)** - Kafka protocol endpoints and usage
 - **[Wire Protocol](docs/protocol.md)** - Binary protocol implementation details
 - **[Client Examples](docs/examples.md)** - Usage with various Kafka clients
+
+### Deep Dive Documentation
+- **[Kafka Internals Deep Dive](docs/kafka-internals.md)** - Detailed insights into how Kafka works, protocol formats, RecordBatch vs legacy formats, consumer group coordination, and real-world implementation challenges discovered through building this system
+- **[Client Behavior Guide](docs/client-behavior.md)** - Complete producer and consumer workflows, KafkaJS behavior patterns, error handling, configuration best practices, and debugging strategies based on real client interactions
+
+These deep dive documents capture the intricate details of Kafka's operation that you can only discover by implementing a compatible system from scratch.
 
 ## 🏗️ Architecture
 
