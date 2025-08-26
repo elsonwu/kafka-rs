@@ -634,16 +634,16 @@ impl ConnectionHandler {
         // Assignment (member assignment, serialize a simple assignment)
         // For basic implementation, assign all partitions to this member
         let mut assignment = BytesMut::new();
-        
+
         // Assignment version (int16)
         encode_i16(&mut assignment, 0);
-        
+
         // Topic assignments array
         encode_i32(&mut assignment, 1); // One topic
-        
+
         // Topic name
         encode_string(&mut assignment, Some("integration-test-topic"))?;
-        
+
         // Partitions array for this topic
         encode_i32(&mut assignment, 1); // One partition
         encode_i32(&mut assignment, 0); // Partition 0
