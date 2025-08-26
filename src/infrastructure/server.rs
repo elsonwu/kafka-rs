@@ -14,7 +14,7 @@ use crate::{
     infrastructure::protocol::{
         encode_bytes, encode_i16, encode_i32, encode_i64, encode_i8, encode_string, ApiKey,
         FetchRequest, KafkaDecodable, KafkaEncodable, ProduceRequest, RequestHeader,
-        ResponseHeader,
+        ResponseHeader, ApiVersionsRequest, ApiVersionsResponse,
     },
 };
 
@@ -162,7 +162,12 @@ impl ConnectionHandler {
                 ApiKey::Metadata => "METADATA",
                 ApiKey::OffsetCommit => "OFFSET_COMMIT",
                 ApiKey::OffsetFetch => "OFFSET_FETCH",
-                _ => "UNKNOWN",
+                ApiKey::FindCoordinator => "FIND_COORDINATOR",
+                ApiKey::JoinGroup => "JOIN_GROUP",
+                ApiKey::Heartbeat => "HEARTBEAT",
+                ApiKey::LeaveGroup => "LEAVE_GROUP",
+                ApiKey::SyncGroup => "SYNC_GROUP",
+                ApiKey::ApiVersions => "API_VERSIONS",
             },
             header.correlation_id
         );
@@ -182,6 +187,9 @@ impl ConnectionHandler {
             }
             ApiKey::OffsetFetch => {
                 self.handle_offset_fetch_request(header, buf).await?;
+            }
+            ApiKey::ApiVersions => {
+                self.handle_api_versions_request(header, buf).await?;
             }
             _ => {
                 warn!("Unsupported API key: {:?}", header.api_key);
@@ -327,6 +335,27 @@ impl ConnectionHandler {
         // For now, just send empty response
         self.send_offset_fetch_response(header.correlation_id)
             .await?;
+        Ok(())
+    }
+
+    /// Handle API versions requests - tells clients what APIs we support
+    async fn handle_api_versions_request(
+        &mut self,
+        header: RequestHeader,
+        buf: &mut BytesMut,
+    ) -> anyhow::Result<()> {
+        debug!("API versions request");
+        
+        // Try to decode the request (it might be empty for older clients)
+        let _request = match ApiVersionsRequest::decode(buf) {
+            Ok(req) => Some(req),
+            Err(_) => {
+                debug!("Failed to decode ApiVersions request, using defaults");
+                None
+            }
+        };
+
+        self.send_api_versions_response(header.correlation_id).await?;
         Ok(())
     }
 
@@ -581,6 +610,21 @@ impl ConnectionHandler {
 
         // Error code
         encode_i16(&mut response, 0);
+
+        self.send_response(response).await
+    }
+
+    /// Send API versions response
+    async fn send_api_versions_response(&mut self, correlation_id: i32) -> anyhow::Result<()> {
+        let mut response = BytesMut::new();
+
+        // Response header
+        let header = ResponseHeader { correlation_id };
+        header.encode(&mut response)?;
+
+        // Create and encode API versions response
+        let api_versions_response = ApiVersionsResponse::new();
+        api_versions_response.encode(&mut response);
 
         self.send_response(response).await
     }

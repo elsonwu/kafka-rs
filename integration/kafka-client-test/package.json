@@ -1,0 +1,20 @@
+{
+  "name": "kafka-rs-client-integration-test",
+  "version": "1.0.0",
+  "description": "Integration tests for kafka-rs using real Kafka JavaScript clients",
+  "main": "test.js",
+  "scripts": {
+    "test": "node test.js"
+  },
+  "dependencies": {
+    "kafkajs": "^2.2.4"
+  },
+  "devDependencies": {},
+  "keywords": [
+    "kafka",
+    "integration",
+    "test"
+  ],
+  "author": "kafka-rs",
+  "license": "MIT"
+}

@@ -14,6 +14,7 @@ pub enum ApiKey {
     Heartbeat = 12,
     LeaveGroup = 13,
     SyncGroup = 14,
+    ApiVersions = 18,
 }
 
 impl TryFrom<i16> for ApiKey {
@@ -31,6 +32,7 @@ impl TryFrom<i16> for ApiKey {
             12 => Ok(ApiKey::Heartbeat),
             13 => Ok(ApiKey::LeaveGroup),
             14 => Ok(ApiKey::SyncGroup),
+            18 => Ok(ApiKey::ApiVersions),
             _ => Err("Unknown API key"),
         }
     }
@@ -381,5 +383,81 @@ impl KafkaDecodable for FetchRequest {
             offset,
             max_bytes,
         })
+    }
+}
+
+/// ApiVersions request - clients use this to discover what APIs the server supports
+#[derive(Debug, Clone)]
+pub struct ApiVersionsRequest {
+    pub client_software_name: String,
+    pub client_software_version: String,
+}
+
+impl ApiVersionsRequest {
+    pub fn decode(buf: &mut BytesMut) -> io::Result<Self> {
+        // ApiVersions request is simple - it may have client info but we'll handle empty case
+        let client_software_name = decode_string(buf)?.unwrap_or_else(|| "unknown".to_string());
+        let client_software_version = decode_string(buf)?.unwrap_or_else(|| "unknown".to_string());
+
+        Ok(ApiVersionsRequest {
+            client_software_name,
+            client_software_version,
+        })
+    }
+}
+
+/// Individual API version info
+#[derive(Debug, Clone)]
+pub struct ApiVersion {
+    pub api_key: i16,
+    pub min_version: i16,
+    pub max_version: i16,
+}
+
+/// ApiVersions response - tells clients what APIs and versions we support
+#[derive(Debug, Clone)]
+pub struct ApiVersionsResponse {
+    pub error_code: i16,
+    pub api_versions: Vec<ApiVersion>,
+    pub throttle_time_ms: i32,
+}
+
+impl ApiVersionsResponse {
+    pub fn new() -> Self {
+        let api_versions = vec![
+            ApiVersion { api_key: 0, min_version: 0, max_version: 3 },   // Produce
+            ApiVersion { api_key: 1, min_version: 0, max_version: 4 },   // Fetch  
+            ApiVersion { api_key: 3, min_version: 0, max_version: 2 },   // Metadata
+            ApiVersion { api_key: 8, min_version: 0, max_version: 2 },   // OffsetCommit
+            ApiVersion { api_key: 9, min_version: 0, max_version: 2 },   // OffsetFetch
+            ApiVersion { api_key: 10, min_version: 0, max_version: 1 },  // FindCoordinator
+            ApiVersion { api_key: 11, min_version: 0, max_version: 2 },  // JoinGroup
+            ApiVersion { api_key: 12, min_version: 0, max_version: 1 },  // Heartbeat
+            ApiVersion { api_key: 13, min_version: 0, max_version: 1 },  // LeaveGroup
+            ApiVersion { api_key: 14, min_version: 0, max_version: 1 },  // SyncGroup
+            ApiVersion { api_key: 18, min_version: 0, max_version: 2 },  // ApiVersions
+        ];
+
+        ApiVersionsResponse {
+            error_code: 0, // No error
+            api_versions,
+            throttle_time_ms: 0,
+        }
+    }
+
+    pub fn encode(&self, buf: &mut BytesMut) {
+        // Error code
+        encode_i16(buf, self.error_code);
+
+        // API versions array
+        encode_i32(buf, self.api_versions.len() as i32);
+        for api_version in &self.api_versions {
+            encode_i16(buf, api_version.api_key);
+            encode_i16(buf, api_version.min_version);
+            encode_i16(buf, api_version.max_version);
+        }
+
+        // Throttle time (for newer versions)
+        encode_i32(buf, self.throttle_time_ms);
     }
 }

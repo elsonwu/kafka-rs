@@ -165,7 +165,7 @@ graph TB
 ## 🧪 Testing
 
 ```bash
-# Run all tests
+# Run all Rust tests
 cargo test
 
 # Run specific test suite
@@ -178,11 +178,34 @@ cargo test -- --nocapture
 cargo bench
 ```
 
+### Kafka Client Integration Test
+
+This project includes a comprehensive integration test using real Kafka JavaScript clients to verify protocol compatibility:
+
+```bash
+# Prerequisites: Node.js 18+ required
+cd integration/kafka-client-test
+npm install
+
+# Start the Kafka server (in another terminal)
+cargo run --release -- --port 9092
+
+# Run the integration test
+npm test
+```
+
+The integration test:
+- ✅ **Producer Test** - Sends messages using KafkaJS client
+- ✅ **Consumer Test** - Receives and verifies message integrity
+- ✅ **Metadata Test** - Fetches topic information
+- ✅ **CI Integration** - Automatically runs in GitHub Actions
+
 ### Test Coverage
 - **Unit Tests** - Domain and application logic
-- **Integration Tests** - End-to-end server functionality
+- **Integration Tests** - End-to-end server functionality  
 - **Protocol Tests** - Wire protocol compatibility
-- **Client Compatibility Tests** - Real Kafka client integration
+- **Client Compatibility Tests** - Real Kafka client integration with KafkaJS
+- **CI/CD Tests** - Automated testing pipeline with multiple Rust versions
 
 ## 🛠️ Development
 
@@ -196,7 +219,9 @@ kafka-rs/
 │   ├── lib.rs          # Library interface
 │   └── main.rs         # Binary entry point
 ├── docs/               # Comprehensive documentation
-├── tests/              # Integration tests
+├── tests/              # Rust integration tests
+├── integration/        # External client integration tests
+│   └── kafka-client-test/  # KafkaJS compatibility tests
 └── .github/workflows/  # CI/CD pipeline
 ```
 
