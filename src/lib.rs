@@ -1,3 +1,6 @@
+#![allow(dead_code)]
+#![allow(unused_imports)]
+
 //! # Kafka-RS
 //!
 //! An educational implementation of Apache Kafka in Rust using Domain-Driven Design.

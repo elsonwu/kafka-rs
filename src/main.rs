@@ -1,3 +1,6 @@
+#![allow(dead_code)]
+#![allow(unused_imports)]
+
 use clap::Parser;
 use log::info;
 use std::sync::Arc;
