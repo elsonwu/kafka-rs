@@ -1,0 +1,14 @@
+# Rust formatting configuration for kafka-rs
+# Uses only stable rustfmt features for consistent formatting
+
+# Line length
+max_width = 100
+
+# Indentation  
+tab_spaces = 4
+
+# Imports
+reorder_imports = true
+
+# Edition
+edition = "2021"

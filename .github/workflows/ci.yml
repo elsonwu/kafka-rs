@@ -34,7 +34,23 @@ jobs:
         shared-key: "kafka-rs"
 
     - name: Check formatting
-      run: cargo fmt --all -- --check
+      run: |
+        echo "🔍 Checking code formatting..."
+        if ! cargo fmt --all -- --check; then
+          echo "❌ Code formatting issues detected!"
+          echo ""
+          echo "💡 To fix formatting issues locally, run:"
+          echo "   cargo fmt --all"
+          echo ""
+          echo "📝 The following files need formatting:"
+          # Show which files need formatting
+          cargo fmt --all -- --check --verbose || true
+          echo ""
+          echo "🔧 Consider setting up a pre-commit hook to auto-format code"
+          exit 1
+        else
+          echo "✅ Code formatting is correct"
+        fi
 
     - name: Run Clippy
       run: cargo clippy --all-targets --all-features -- -D warnings
