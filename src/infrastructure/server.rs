@@ -343,7 +343,11 @@ impl ConnectionHandler {
                         if !topics.contains(&requested_topic) {
                             debug!("Auto-creating topic: {}", requested_topic);
                             // Actually create the topic, not just add it to the response
-                            match self.topic_management_use_case.create_topic(requested_topic.clone()).await {
+                            match self
+                                .topic_management_use_case
+                                .create_topic(requested_topic.clone())
+                                .await
+                            {
                                 Ok(_) => {
                                     debug!("Successfully created topic: {}", requested_topic);
                                     topics.push(requested_topic);
