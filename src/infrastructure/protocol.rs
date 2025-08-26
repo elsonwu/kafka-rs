@@ -7,6 +7,7 @@ use std::io;
 pub enum ApiKey {
     Produce = 0,
     Fetch = 1,
+    ListOffsets = 2,
     Metadata = 3,
     OffsetCommit = 8,
     OffsetFetch = 9,
@@ -25,6 +26,7 @@ impl TryFrom<i16> for ApiKey {
         match value {
             0 => Ok(ApiKey::Produce),
             1 => Ok(ApiKey::Fetch),
+            2 => Ok(ApiKey::ListOffsets),
             3 => Ok(ApiKey::Metadata),
             8 => Ok(ApiKey::OffsetCommit),
             9 => Ok(ApiKey::OffsetFetch),

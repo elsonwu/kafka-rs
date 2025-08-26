@@ -179,6 +179,9 @@ impl ConnectionHandler {
             ApiKey::Fetch => {
                 self.handle_fetch_request(header, buf).await?;
             }
+            ApiKey::ListOffsets => {
+                self.handle_list_offsets_request(header, buf).await?;
+            }
             ApiKey::Metadata => {
                 self.handle_metadata_request(header, buf).await?;
             }
@@ -307,7 +310,10 @@ impl ConnectionHandler {
         &mut self,
         buf: &mut BytesMut,
     ) -> anyhow::Result<Option<Vec<String>>> {
+        debug!("Decoding metadata request, buffer size: {}", buf.remaining());
+        
         if buf.remaining() < 4 {
+            debug!("Buffer too small for topics count");
             return Ok(None);
         }
 
@@ -317,21 +323,28 @@ impl ConnectionHandler {
 
         if topics_count == -1 {
             // Null array means all topics
+            debug!("Null topics array - requesting all topics");
             return Ok(None);
         }
 
         if topics_count == 0 {
-            // Empty array means all topics
+            // Empty array means all topics  
+            debug!("Empty topics array - requesting all topics");
             return Ok(None);
         }
 
         let mut topics = Vec::new();
-        for _ in 0..topics_count {
+        for i in 0..topics_count {
+            debug!("Decoding topic {} of {}", i + 1, topics_count);
             if let Some(topic) = decode_string(buf)? {
+                debug!("Decoded topic: {}", topic);
                 topics.push(topic);
+            } else {
+                debug!("Failed to decode topic {}", i + 1);
             }
         }
 
+        debug!("Successfully decoded {} topics: {:?}", topics.len(), topics);
         Ok(Some(topics))
     }
 
@@ -918,8 +931,8 @@ impl ConnectionHandler {
         // Partition index
         encode_i32(&mut response, 0);
 
-        // Committed offset (-1 means no committed offset, consumer should start from beginning)
-        encode_i64(&mut response, -1);
+        // Committed offset (return 0 so consumer knows where it left off)
+        encode_i64(&mut response, 0);
 
         // Leader epoch (-1 means no epoch)
         encode_i32(&mut response, -1);
@@ -934,7 +947,7 @@ impl ConnectionHandler {
         encode_i16(&mut response, 0);
 
         debug!(
-            "Sending OffsetFetch response: {} bytes, correlation_id: {}, telling consumer to start from beginning",
+            "Sending OffsetFetch response: {} bytes, correlation_id: {}, telling consumer it left off at offset 0",
             response.len(),
             correlation_id
         );
