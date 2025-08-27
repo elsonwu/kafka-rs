@@ -2,9 +2,11 @@ name: CI
 
 on:
   push:
-    branches: [ main, develop ]
+    branches:
+      - '**'
   pull_request:
-    branches: [ main ]
+    branches:
+      - '**'
 
 env:
   CARGO_TERM_COLOR: always
@@ -34,7 +36,40 @@ jobs:
         shared-key: "kafka-rs"
 
     - name: Check formatting
-      run: cargo fmt --all -- --check
+      run: |
+        echo "🔍 Checking code formatting..."
+        if ! cargo fmt --all -- --check; then
+          echo "❌ Code formatting issues detected!"
+          echo ""
+          echo "🔧 Auto-fixing locally..."
+          cargo fmt --all
+          echo ""
+          echo "� Formatting has been fixed. The following files were updated:"
+          git diff --name-only || true
+          echo ""
+          echo "📋 To resolve this CI failure:"
+          echo "1. Run 'cargo fmt --all' or 'scripts/format.sh' locally"
+          echo "2. Commit the formatting changes"
+          echo "3. Push the changes to update this PR"
+          echo ""
+          echo "🔗 Or set up auto-formatting:"
+          echo "   ln -sf ../../scripts/pre-commit.sh .git/hooks/pre-commit"
+          exit 1
+        else
+          echo "✅ Code formatting is correct"
+        fi
+
+    - name: Run Clippy
+      run: cargo clippy --all-targets --all-features -- -D warnings
+
+    - name: Build project
+      run: cargo build --verbose --all-targets
+
+    - name: Run tests
+      run: cargo test --verbose --all-features
+
+    - name: Run doctests
+      run: cargo test --doc --verbose
 
     - name: Run Clippy
       run: cargo clippy --all-targets --all-features -- -D warnings
@@ -77,6 +112,68 @@ jobs:
           echo "❌ Server failed to start on port 9092"
           exit 1
         fi
+        
+        # Clean shutdown
+        kill $SERVER_PID 2>/dev/null || true
+        wait $SERVER_PID 2>/dev/null || true
+
+  kafka-client-integration:
+    name: Kafka Client Integration
+    runs-on: ubuntu-latest
+    needs: test
+    
+    steps:
+    - name: Checkout repository
+      uses: actions/checkout@v4
+
+    - name: Install Rust toolchain
+      uses: dtolnay/rust-toolchain@stable
+
+    - name: Cache Rust dependencies
+      uses: Swatinem/rust-cache@v2
+
+    - name: Setup Node.js
+      uses: actions/setup-node@v4
+      with:
+        node-version: '20'
+        cache: 'npm'
+        cache-dependency-path: integration/kafka-client-test/package-lock.json
+
+    - name: Install Kafka client dependencies
+      run: |
+        cd integration/kafka-client-test
+        npm ci
+
+    - name: Build Kafka server
+      run: cargo build --release
+
+    - name: Run Kafka client integration test
+      run: |
+        # Start the Kafka server in background
+        cargo run --release -- --port 9092 &
+        SERVER_PID=$!
+        
+        # Wait for server to start
+        echo "Waiting for Kafka server to start..."
+        for i in {1..30}; do
+          if netstat -tuln | grep -q ":9092"; then
+            echo "✅ Kafka server is ready on port 9092"
+            break
+          fi
+          echo "Waiting for server... ($i/30)"
+          sleep 2
+        done
+        
+        # Verify server is running
+        if ! netstat -tuln | grep -q ":9092"; then
+          echo "❌ Kafka server failed to start"
+          kill $SERVER_PID 2>/dev/null || true
+          exit 1
+        fi
+        
+        # Run the Node.js client test
+        cd integration/kafka-client-test
+        npm test
         
         # Clean shutdown
         kill $SERVER_PID 2>/dev/null || true

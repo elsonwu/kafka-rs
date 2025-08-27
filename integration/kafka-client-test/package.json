@@ -1,0 +1,17 @@
+{
+  "name": "kafka-rs-integration-tests",
+  "version": "1.0.0",
+  "description": "Integration tests for kafka-rs using KafkaJS client",
+  "main": "test.js",
+  "scripts": {
+    "test": "node test.js",
+    "create-topics": "node utils/create-topics.js",
+    "debug-metadata": "node utils/debug-metadata.js"
+  },
+  "dependencies": {
+    "kafkajs": "^2.2.4"
+  },
+  "keywords": ["kafka", "integration-test", "kafkajs"],
+  "author": "kafka-rs team",
+  "license": "MIT"
+}

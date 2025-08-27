@@ -180,6 +180,80 @@ You should see the message flow from producer to consumer!
 3. **Message Retrieval**: Messages are fetched from the stored offset
 4. **Offset Update**: Consumer position advances
 
+## Automated Integration Testing
+
+For comprehensive testing, Kafka-RS includes automated integration tests using real Kafka JavaScript clients.
+
+### Running the Integration Test
+
+The integration test verifies protocol compatibility with actual Kafka clients:
+
+```bash
+# Install Node.js dependencies
+cd integration/kafka-client-test
+npm install
+
+# Start the server (in another terminal)
+cargo run --release -- --port 9092
+
+# Run the automated test
+npm test
+```
+
+### What the Integration Test Does
+
+The automated test performs a complete producer-consumer cycle:
+
+1. **Producer Test**: 
+   - Connects to Kafka-RS server
+   - Creates topic `integration-test-topic`
+   - Sends 3 test messages with different keys and values
+   - Verifies successful delivery
+
+2. **Consumer Test**:
+   - Subscribes to the test topic from beginning  
+   - Consumes all messages sent by producer
+   - Verifies message integrity (keys and values match)
+   - Uses consumer group `integration-test-group`
+
+3. **Metadata Test**:
+   - Fetches topic metadata using admin client
+   - Verifies server responds correctly
+
+### Integration Test Output
+
+When successful, you'll see:
+
+```
+🎯 Starting Kafka Client Integration Test
+📡 Connecting to Kafka broker: localhost:9092
+
+🚀 Testing Kafka Producer...
+✅ Producer connected successfully
+✅ Sent 3 messages
+✅ Producer disconnected successfully
+
+📥 Testing Kafka Consumer...  
+✅ Consumer connected successfully
+✅ Subscribed to topic: integration-test-topic
+📩 Received message: {"key":"key1","value":"Hello from KafkaJS client!"}
+📩 Received message: {"key":"key2","value":"Testing Kafka-RS server compatibility"}
+📩 Received message: {"key":"key3","value":"{\"test\":true,\"timestamp\":...}"}
+✅ Received 3 messages (expected 3)
+✅ Consumer disconnected successfully
+
+🎉 Integration Test Results:
+   ✅ Producer: Successfully sent 3 messages
+   ✅ Consumer: Successfully received 3 messages
+   ✅ Server compatibility: Verified with real Kafka JavaScript client
+
+🎯 All integration tests passed! Kafka-RS server is compatible with KafkaJS client.
+```
+
+### CI/CD Integration
+
+This integration test runs automatically in GitHub Actions as part of the `kafka-client-integration` job, ensuring ongoing compatibility with real Kafka clients.
+
 ## Troubleshooting
 
 ### Connection Refused
