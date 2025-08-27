@@ -30,3 +30,23 @@ Thumbs.db
 # Node.js dependencies
 node_modules/
 package-lock.json
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+.npm
+
+# Temporary and backup files
+*_initial.*
+*_backup.*
+*_temp.*
+PR_SUMMARY.*
+PULL_REQUEST_TEMPLATE.*
+*.tmp
+*.temp
+
+# Editor temporary files
+*.swp
+*.swo
+*~
+.*.swp
+.*.swo
