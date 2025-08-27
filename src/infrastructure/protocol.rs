@@ -462,7 +462,7 @@ impl ApiVersionsResponse {
             ApiVersion {
                 api_key: 1,
                 min_version: 0,
-                max_version: 4,
+                max_version: 1,
             }, // Fetch
             ApiVersion {
                 api_key: 2,

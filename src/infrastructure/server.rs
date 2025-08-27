@@ -1,4 +1,5 @@
 use bytes::{Buf, BytesMut};
+use crc32fast::Hasher as Crc32Hasher;
 use log::{debug, error, info, warn};
 use std::sync::Arc;
 use tokio::io::{AsyncReadExt, AsyncWriteExt};
@@ -267,7 +268,12 @@ impl ConnectionHandler {
         header: RequestHeader,
         buf: &mut BytesMut,
     ) -> anyhow::Result<()> {
-        match FetchRequest::decode(buf) {
+        let fetch_req = if header.api_version <= 1 {
+            self.decode_fetch_request_v1(buf)
+        } else {
+            FetchRequest::decode(buf).map_err(|e| anyhow::anyhow!(e))
+        };
+        match fetch_req {
             Ok(request) => {
                 debug!(
                     "Fetch request for topic: {}, offset: {}, max_bytes: {}",
@@ -286,6 +292,7 @@ impl ConnectionHandler {
                         debug!("Retrieved {} messages", messages.len());
                         self.send_fetch_response(
                             header.correlation_id,
+                            header.api_version,
                             &request.topic,
                             messages,
                             request.offset as u64,
@@ -305,6 +312,40 @@ impl ConnectionHandler {
         }
 
         Ok(())
+    }
+
+    /// Decode Fetch v1 (and v0) request shape
+    fn decode_fetch_request_v1(&mut self, buf: &mut BytesMut) -> anyhow::Result<FetchRequest> {
+        let replica_id = decode_i32(buf)?;
+        let max_wait = decode_i32(buf)?;
+        let min_bytes = decode_i32(buf)?;
+
+        let topic_count = decode_i32(buf)?;
+        if topic_count != 1 {
+            return Err(anyhow::anyhow!("Expected exactly one topic in Fetch v1"));
+        }
+        let topic = decode_string(buf)?
+            .ok_or_else(|| anyhow::anyhow!("Topic cannot be null in Fetch v1"))?;
+
+        let part_count = decode_i32(buf)?;
+        if part_count != 1 {
+            return Err(anyhow::anyhow!(
+                "Expected exactly one partition in Fetch v1"
+            ));
+        }
+        let partition = decode_i32(buf)?;
+        let offset = decode_i64(buf)?;
+        let max_bytes = decode_i32(buf)?;
+
+        Ok(FetchRequest {
+            replica_id,
+            max_wait,
+            min_bytes,
+            topic,
+            partition,
+            offset,
+            max_bytes,
+        })
     }
 
     /// Decode metadata request to extract requested topics
@@ -894,10 +935,80 @@ impl ConnectionHandler {
     async fn send_fetch_response(
         &mut self,
         correlation_id: i32,
+        api_version: i16,
         topic: &str,
         messages: Vec<Message>,
         start_offset: u64,
     ) -> anyhow::Result<()> {
+        // If the client negotiated an old Fetch version (<=1), return a v1-style response
+        if api_version <= 1 {
+            let mut response = BytesMut::new();
+
+            // Response header
+            let header = ResponseHeader { correlation_id };
+            header.encode(&mut response)?;
+
+            // Topic responses
+            encode_i32(&mut response, 1); // One topic
+
+            // Topic name
+            encode_string(&mut response, Some(topic))?;
+
+            // Partition responses
+            encode_i32(&mut response, 1); // One partition
+
+            // Partition index
+            encode_i32(&mut response, 0);
+
+            // Error code
+            encode_i16(&mut response, 0);
+
+            // High watermark
+            encode_i64(&mut response, start_offset as i64 + messages.len() as i64);
+
+            // Build MessageSet (old format expected by Fetch v1)
+            let mut message_set = BytesMut::new();
+            for (i, message) in messages.iter().enumerate() {
+                // Message offset within the set
+                encode_i64(&mut message_set, start_offset as i64 + i as i64);
+
+                // Build message body for magic v1 (with timestamp) into a temp buffer
+                let mut msg_body = BytesMut::new();
+                // Magic v1
+                encode_i8(&mut msg_body, 1);
+                // Attributes
+                encode_i8(&mut msg_body, 0);
+                // Timestamp (ms)
+                encode_i64(&mut msg_body, message.timestamp.timestamp_millis());
+                // Key
+                if let Some(ref key) = message.key {
+                    encode_bytes(&mut msg_body, Some(key.as_bytes()))?;
+                } else {
+                    encode_bytes(&mut msg_body, None)?;
+                }
+                // Value
+                encode_bytes(&mut msg_body, Some(&message.value))?;
+
+                // CRC32 over msg_body
+                let mut hasher = Crc32Hasher::new();
+                hasher.update(&msg_body);
+                let crc = hasher.finalize();
+
+                // message_size = 4 (CRC) + msg_body length
+                let msg_size = 4 + msg_body.len();
+                encode_i32(&mut message_set, msg_size as i32);
+                encode_i32(&mut message_set, crc as i32);
+                message_set.extend_from_slice(&msg_body);
+            }
+
+            // message_set_size then message_set bytes
+            encode_i32(&mut response, message_set.len() as i32);
+            response.extend_from_slice(&message_set);
+
+            return self.send_response(response).await;
+        }
+
+        // Default to a simplified v4-like response (may not be fully compatible with all clients)
         let mut response = BytesMut::new();
 
         // Response header
@@ -943,45 +1054,8 @@ impl ConnectionHandler {
         // Preferred read replica
         encode_i32(&mut response, -1);
 
-        // Records (simplified)
-        if messages.is_empty() {
-            encode_i32(&mut response, 0); // Empty record set
-        } else {
-            // Simple message encoding
-            let mut records = BytesMut::new();
-            for (i, message) in messages.iter().enumerate() {
-                // Offset
-                encode_i64(&mut records, start_offset as i64 + i as i64);
-
-                // Message size calculation
-                let key_size = message.key.as_ref().map(|k| k.len()).unwrap_or(0);
-                let value_size = message.value.len();
-                let message_size = 4 + 1 + 1 + 8 + 4 + key_size + 4 + value_size;
-
-                encode_i32(&mut records, message_size as i32);
-
-                // CRC (dummy)
-                encode_i32(&mut records, 0);
-
-                // Magic byte
-                encode_i8(&mut records, 1);
-
-                // Attributes
-                encode_i8(&mut records, 0);
-
-                // Timestamp
-                encode_i64(&mut records, message.timestamp.timestamp_millis());
-
-                // Key
-                encode_bytes(&mut records, message.key.as_ref().map(|k| k.as_bytes()))?;
-
-                // Value
-                encode_bytes(&mut records, Some(&message.value))?;
-            }
-
-            encode_i32(&mut response, records.len() as i32);
-            response.extend_from_slice(&records);
-        }
+        // Records (simplified empty set for now)
+        encode_i32(&mut response, 0);
 
         self.send_response(response).await
     }
