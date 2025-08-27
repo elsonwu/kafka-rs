@@ -465,6 +465,11 @@ impl ApiVersionsResponse {
                 max_version: 4,
             }, // Fetch
             ApiVersion {
+                api_key: 2,
+                min_version: 0,
+                max_version: 2,
+            }, // ListOffsets
+            ApiVersion {
                 api_key: 3,
                 min_version: 0,
                 max_version: 2,

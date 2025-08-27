@@ -13,7 +13,11 @@
  * 4. Verify message integrity
  */
 
-const { Kafka, logLevel } = require('kafkajs');
+const {
+  Kafka,
+  ErrorCodes,
+  logLevel
+} = require('@confluentinc/kafka-javascript').KafkaJS;
 
 // Test configuration
 const KAFKA_BROKER = 'localhost:9092';
@@ -26,62 +30,54 @@ const TEST_MESSAGES = [
 ];
 
 // Initialize Kafka client
-const kafka = new Kafka({
-    clientId: 'kafka-rs-integration-test',
-    brokers: [KAFKA_BROKER],
-    logLevel: logLevel.ERROR, // Reduce noise in CI logs
-    retry: {
-        initialRetryTime: 100,
-        retries: 3
-    },
-    connectionTimeout: 5000,
-    requestTimeout: 10000
-});
+// Configure the Kafka client using Confluent's official JavaScript client
+const kafka = new Kafka();
 
 async function sleep(ms) {
     return new Promise(resolve => setTimeout(resolve, ms));
 }
 
 async function testProducer() {
-    console.log('🚀 Testing Kafka Producer...');
+  console.log('🚀 Testing Kafka Producer...');
+  
+  const producer = kafka.producer({
+    'bootstrap.servers': 'localhost:9092',
+  });
+  
+  try {
+    await producer.connect();
+    console.log('✅ Producer connected successfully');
     
-    const producer = kafka.producer({
-        allowAutoTopicCreation: true,
-        transactionTimeout: 30000
+    const messages = [
+      { key: 'key1', value: 'Hello World 1' },
+      { key: 'key2', value: 'Hello World 2' },
+      { key: 'key3', value: 'Hello World 3' }
+    ];
+    
+    const result = await producer.send({
+      topic: 'integration-test-topic',
+      messages: messages
     });
-
-    try {
-        await producer.connect();
-        console.log('✅ Producer connected successfully');
-
-        // Send test messages
-        const results = await producer.send({
-            topic: TEST_TOPIC,
-            messages: TEST_MESSAGES
-        });
-
-        console.log(`✅ Sent ${TEST_MESSAGES.length} messages:`, results);
-        
-        await producer.disconnect();
-        console.log('✅ Producer disconnected successfully');
-        
-        return true;
-    } catch (error) {
-        console.error('❌ Producer test failed:', error.message);
-        await producer.disconnect().catch(() => {}); // Safe disconnect
-        throw error;
-    }
+    
+    console.log('✅ Sent 3 messages:', result);
+    
+    await producer.disconnect();
+    console.log('✅ Producer disconnected successfully');
+    
+    return true;
+  } catch (error) {
+    console.error('❌ Producer test failed:', error.message);
+    console.error('Raw error:', error);
+    return false;
+  }
 }
 
 async function testConsumer() {
     console.log('📥 Testing Kafka Consumer...');
     
     const consumer = kafka.consumer({
-        groupId: TEST_GROUP,
-        sessionTimeout: 15000,  // Increased timeout
-        heartbeatInterval: 5000,  // Increased heartbeat interval
-        maxWaitTimeInMs: 10000,  // Increased fetch wait time
-        allowAutoTopicCreation: true
+        'bootstrap.servers': 'localhost:9092',
+        'group.id': TEST_GROUP,
     });
 
     const receivedMessages = [];
@@ -92,8 +88,7 @@ async function testConsumer() {
         console.log('✅ Consumer connected successfully');
 
         await consumer.subscribe({
-            topic: TEST_TOPIC,
-            fromBeginning: true
+            topics: [TEST_TOPIC]
         });
 
         console.log(`✅ Subscribed to topic: ${TEST_TOPIC}`);

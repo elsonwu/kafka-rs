@@ -1123,9 +1123,9 @@ impl ConnectionHandler {
         // Partition index
         encode_i32(&mut response, 0);
 
-        // Committed offset (return 0 to tell consumer to start from beginning)
-        // Note: Changed from -1 to 0 to provide concrete starting offset
-        encode_i64(&mut response, 0);
+        // Committed offset (-1 means no committed offset, consumer should use auto.offset.reset)
+        // Return -1 to indicate no committed offset for new consumer groups
+        encode_i64(&mut response, -1);
 
         // Leader epoch (-1 means no epoch)
         encode_i32(&mut response, -1);
@@ -1140,7 +1140,7 @@ impl ConnectionHandler {
         encode_i16(&mut response, 0);
 
         debug!(
-            "Sending OffsetFetch response: {} bytes, correlation_id: {}, telling consumer to start from offset 0",
+            "Sending OffsetFetch response: {} bytes, correlation_id: {}, telling consumer no committed offset (-1)",
             response.len(),
             correlation_id
         );
