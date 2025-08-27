@@ -1,20 +1,17 @@
 {
-  "name": "kafka-rs-client-integration-test",
+  "name": "kafka-rs-integration-tests",
   "version": "1.0.0",
-  "description": "Integration tests for kafka-rs using Confluent's official Kafka JavaScript client",
+  "description": "Integration tests for kafka-rs using KafkaJS client",
   "main": "test.js",
   "scripts": {
-    "test": "node test.js"
+    "test": "node test.js",
+    "create-topics": "node create-topics.js",
+    "debug-metadata": "node debug-metadata.js"
   },
   "dependencies": {
-    "@confluentinc/kafka-javascript": "^1.4.1"
+    "kafkajs": "^2.2.4"
   },
-  "keywords": [
-    "kafka",
-    "integration",
-    "test",
-    "confluent"
-  ],
-  "author": "kafka-rs",
+  "keywords": ["kafka", "integration-test", "kafkajs"],
+  "author": "kafka-rs team",
   "license": "MIT"
 }

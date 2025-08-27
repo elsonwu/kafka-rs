@@ -35,6 +35,11 @@ yarn-debug.log*
 yarn-error.log*
 .npm
 
+# Root-level Node.js files (keep Node.js contained in integration folder)
+/package.json
+/package-lock.json
+/*.js
+
 # Temporary and backup files
 *_initial.*
 *_backup.*
