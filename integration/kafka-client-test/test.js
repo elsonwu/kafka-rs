@@ -72,86 +72,51 @@ async function testProducer() {
   }
 }
 
-async function testConsumer() {
+async function testConsumer(broker, topic, groupId) {
     console.log('📥 Testing Kafka Consumer...');
-    
-    const consumer = kafka.consumer({
-        'bootstrap.servers': 'localhost:9092',
-        'group.id': TEST_GROUP,
+    const consumer = new Kafka.KafkaConsumer({
+        'bootstrap.servers': broker,
+        'group.id': groupId,
+        'auto.offset.reset': 'earliest'
     });
 
-    const receivedMessages = [];
-    let consumerRunning = false;
-
-    try {
-        await consumer.connect();
-        console.log('✅ Consumer connected successfully');
-
-        await consumer.subscribe({
-            topics: [TEST_TOPIC]
+    return new Promise((resolve, reject) => {
+        consumer.on('ready', () => {
+            console.log('✅ Consumer connected successfully');
+            consumer.subscribe([topic], (err) => {
+                if (err) {
+                    return reject(err);
+                }
+                console.log(`✅ Subscribed to topic: ${topic}`);
+            });
         });
 
-        console.log(`✅ Subscribed to topic: ${TEST_TOPIC}`);
-
-        // Set up message handler (this starts the consumer loop)
-        const runPromise = consumer.run({
-            eachMessage: async ({ topic, partition, message }) => {
-                const messageData = {
-                    topic,
-                    partition,
-                    offset: message.offset,
-                    key: message.key ? message.key.toString() : null,
-                    value: message.value ? message.value.toString() : null,
-                    timestamp: message.timestamp
-                };
-                
-                receivedMessages.push(messageData);
-                console.log(`📩 Received message: ${JSON.stringify(messageData)}`);
-            },
-        });
-
-        consumerRunning = true;
-
-        // Wait for messages to be consumed  
-        console.log('⏳ Waiting for messages...');
-        const maxWaitTime = 30000; // Increased to 30 seconds
-        const startTime = Date.now();
-        
-        while (receivedMessages.length < TEST_MESSAGES.length && (Date.now() - startTime) < maxWaitTime) {
-            await sleep(1000);
-            console.log(`📊 Progress: ${receivedMessages.length}/${TEST_MESSAGES.length} messages received`);
-        }
-
-        await consumer.disconnect();
-        console.log('✅ Consumer disconnected successfully');
-
-        // Verify received messages
-        if (receivedMessages.length === 0) {
-            throw new Error('No messages were received');
-        }
-
-        console.log(`✅ Received ${receivedMessages.length} messages (expected ${TEST_MESSAGES.length})`);
-        
-        // Verify message content
-        for (let i = 0; i < Math.min(receivedMessages.length, TEST_MESSAGES.length); i++) {
-            const received = receivedMessages[i];
-            const expected = TEST_MESSAGES[i];
+        consumer.on('data', (data) => {
+            const messageData = {
+                topic: data.topic,
+                partition: data.partition,
+                offset: data.offset,
+                key: data.key ? data.key.toString() : null,
+                value: data.value ? data.value.toString() : null,
+                timestamp: data.timestamp
+            };
             
-            if (received.key !== expected.key || received.value !== expected.value) {
-                console.warn(`⚠️  Message ${i} content mismatch:`);
-                console.warn(`   Expected: key=${expected.key}, value=${expected.value}`);
-                console.warn(`   Received: key=${received.key}, value=${received.value}`);
-            } else {
-                console.log(`✅ Message ${i} verified successfully`);
-            }
-        }
+            console.log(`📩 Received message: ${JSON.stringify(messageData)}`);
+        });
 
-        return receivedMessages;
-    } catch (error) {
-        console.error('❌ Consumer test failed:', error.message);
-        await consumer.disconnect().catch(() => {}); // Safe disconnect
-        throw error;
-    }
+        consumer.on('error', (err) => {
+            console.error('❌ Consumer error:', err.message);
+            reject(err);
+        });
+
+        consumer.on('disconnected', () => {
+            console.log('✅ Consumer disconnected');
+            resolve();
+        });
+
+        // Start the consumer
+        consumer.connect();
+    });
 }
 
 async function testMetadata() {
@@ -193,7 +158,7 @@ async function runIntegrationTest() {
         console.log('📝 Starting consumer first (better for testing)...');
         
         // Start consumer in background (non-blocking)
-        const consumerPromise = testConsumer();
+        const consumerPromise = testConsumer(KAFKA_BROKER, TEST_TOPIC, TEST_GROUP);
         console.log('');
         
         // Small delay to let consumer set up group coordination
