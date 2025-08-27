@@ -5,8 +5,8 @@
   "main": "test.js",
   "scripts": {
     "test": "node test.js",
-    "create-topics": "node create-topics.js",
-    "debug-metadata": "node debug-metadata.js"
+    "create-topics": "node utils/create-topics.js",
+    "debug-metadata": "node utils/debug-metadata.js"
   },
   "dependencies": {
     "kafkajs": "^2.2.4"
